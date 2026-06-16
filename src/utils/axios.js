@@ -32,21 +32,23 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response) {
-      if (error.response.status === 401) {
-        // Skip handling for login routes to let them show credential errors
-        if (error.config?.url?.includes("/auth/login") || error.config?.url?.includes("/user/verify-otp")) {
-          return Promise.reject(error);
-        }
+    if (error.response && error.response.status === 401) {
+      // Skip handling for login/auth routes to let them show credential/validation errors
+      if (
+        error.config?.url?.includes("/auth/login") ||
+        error.config?.url?.includes("/auth/verify-otp") ||
+        error.config?.url?.includes("/auth/send-otp")
+      ) {
+        return Promise.reject(error);
+      }
 
-        console.warn("Session expired. Clearing storage...");
-        try {
-          await AsyncStorage.multiRemove(["token", "tokenExpiry", "user"]);
-          const { router } = require("expo-router");
-          router.replace("/login");
-        } catch (err) {
-          console.error("Failed to clear session:", err);
-        }
+      console.warn("Session expired. Clearing storage...");
+      try {
+        await AsyncStorage.multiRemove(["token", "tokenExpiry", "user"]);
+        const { router } = require("expo-router");
+        router.replace("/login");
+      } catch (err) {
+        console.log("Failed to clear session:", err);
       }
     }
     return Promise.reject(error);

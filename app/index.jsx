@@ -74,7 +74,7 @@ export default function Index() {
           }
         }
       } catch (error) {
-        console.error("Session verification error:", error);
+        console.log("Session verification error:", error);
       }
 
       const elapsedTime = Date.now() - startTime;

@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { verifyOtpApi, sendOtpApi } from "../api/auth";
+import { verifyOtpApi, resendOtpApi } from "../api/auth";
 
 export default function OtpScreen() {
   const router = useRouter();
@@ -25,7 +25,7 @@ export default function OtpScreen() {
     try {
       setResendLoading(true);
       setError("");
-      await sendOtpApi(phone);
+      await resendOtpApi(phone);
     } catch (err) {
       console.log("Resend failed:", err.message);
     } finally {
@@ -48,9 +48,14 @@ export default function OtpScreen() {
       setLoading(true);
       setError("");
       const result = await verifyOtpApi(phone, otp);
+      const token = result?.accessToken || result?.token;
       
-      await AsyncStorage.setItem("token", result?.token || "mock-user-token");
-      await AsyncStorage.setItem("user", JSON.stringify(result?.user || { phone, role: "user" }));
+      if (!token) {
+        throw new Error("Invalid OTP verification response");
+      }
+
+      await AsyncStorage.setItem("token", token);
+      await AsyncStorage.setItem("user", JSON.stringify(result.user || { phone, role: "user" }));
 
       const expiryDate = new Date();
       expiryDate.setDate(expiryDate.getDate() + 30);
@@ -58,11 +63,8 @@ export default function OtpScreen() {
 
       router.replace("/home");
     } catch (err) {
-      console.log("OTP verification failed, using dev bypass:", err.message);
-      // Dev bypass
-      await AsyncStorage.setItem("token", "mock-user-token");
-      await AsyncStorage.setItem("user", JSON.stringify({ phone, name: "Townneed User", role: "user" }));
-      router.replace("/home");
+      console.log("OTP verification failed:", err.message);
+      setError(err.message || "OTP verification failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -122,17 +124,19 @@ export default function OtpScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.checkboxContainer}>
-          <TouchableOpacity
-            style={[styles.checkbox, agreed && styles.checkboxChecked]}
-            onPress={() => setAgreed(!agreed)}
-          >
-            {agreed && <Ionicons name="checkmark" size={14} color="#FFF" />}
-          </TouchableOpacity>
-          <Text style={styles.checkboxText}>
-            I agree to the Townneed Terms of Service & Privacy Policy
-          </Text>
-        </View>
+        {isFirstLogin === "true" && (
+          <View style={styles.checkboxContainer}>
+            <TouchableOpacity
+              style={[styles.checkbox, agreed && styles.checkboxChecked]}
+              onPress={() => setAgreed(!agreed)}
+            >
+              {agreed && <Ionicons name="checkmark" size={14} color="#FFF" />}
+            </TouchableOpacity>
+            <Text style={styles.checkboxText}>
+              I agree to the Townneed Terms of Service & Privacy Policy
+            </Text>
+          </View>
+        )}
 
         <TouchableOpacity style={styles.button} onPress={handleVerifyOtp} disabled={loading}>
           <Text style={styles.buttonText}>

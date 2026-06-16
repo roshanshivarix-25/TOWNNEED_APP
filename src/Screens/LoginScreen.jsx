@@ -25,11 +25,12 @@ export default function LoginScreen() {
 
     try {
       setLoading(true);
-      const res = await sendOtpApi(phone);
+      const formattedPhone = `+91${phone}`;
+      const res = await sendOtpApi(formattedPhone);
       router.push({
         pathname: "/otp",
         params: {
-          phone,
+          phone: formattedPhone,
           isFirstLogin: res?.isFirstLogin ? "true" : "false",
         },
       });
@@ -40,7 +41,7 @@ export default function LoginScreen() {
       router.push({
         pathname: "/otp",
         params: {
-          phone,
+          phone: `+91${phone}`,
           isFirstLogin: "false",
         },
       });

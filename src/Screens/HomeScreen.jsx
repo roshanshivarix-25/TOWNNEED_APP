@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useRouter, useNavigation } from "expo-router";
 import { useState, useEffect } from "react";
 import {
   StyleSheet,
@@ -7,18 +7,24 @@ import {
   TextInput,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   Image,
+  Alert,
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getMeApi } from "../api/auth";
+import { getServicesApi } from "../api/services";
+import BottomTab from "../Components/BottomTab";
 
 export default function HomeScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const [userName, setUserName] = useState("Guest");
-  const [selectedTab, setSelectedTab] = useState("Home");
+  const [services, setServices] = useState([]);
+  const [loadingServices, setLoadingServices] = useState(true);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -26,65 +32,78 @@ export default function HomeScreen() {
         const userJson = await AsyncStorage.getItem("user");
         if (userJson) {
           const userObj = JSON.parse(userJson);
-          setUserName(userObj.name || "User");
+          setUserName(userObj.fullName || userObj.name || "User");
         } else {
-          const apiUser = await getMeApi();
-          setUserName(apiUser?.name || "User");
+          const apiUser = await getMeApi().catch(() => null);
+          setUserName(apiUser?.fullName || apiUser?.name || "User");
         }
       } catch (e) {
         console.log("Failed to load user details:", e);
       }
     };
+
+    const fetchServices = async () => {
+      try {
+        setLoadingServices(true);
+        const data = await getServicesApi();
+        setServices(data || []);
+      } catch (err) {
+        console.log("Failed to load services:", err.message);
+      } finally {
+        setLoadingServices(false);
+      }
+    };
+
     fetchUser();
-  }, []);
+    fetchServices();
 
-  const handleLogout = async () => {
-    try {
-      await AsyncStorage.multiRemove(["token", "tokenExpiry", "user"]);
-      router.replace("/login");
-    } catch (e) {
-      console.error(e);
+    const unsubscribe = navigation.addListener("focus", () => {
+      fetchUser();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  const getServiceDesign = (title) => {
+    const t = (title || "").toLowerCase();
+    if (t.includes("tent") || t.includes("shamiyana")) {
+      return {
+        iconType: "campground",
+        iconLib: "FontAwesome5",
+        iconColor: "#D97706",
+        bgColor: "#FEF3C7",
+      };
     }
-  };
-
-  const services = [
-    {
-      id: 1,
-      title: "Tent / Shamiyana",
-      subtext: "Events ke liye",
-      iconType: "campground",
-      iconLib: "FontAwesome5",
-      iconColor: "#D97706",
-      bgColor: "#FEF3C7",
-    },
-    {
-      id: 2,
-      title: "Dhool / Mitti",
-      subtext: "Construction ke liye",
-      iconType: "truck",
-      iconLib: "FontAwesome5",
-      iconColor: "#4B5563",
-      bgColor: "#F3F4F6",
-    },
-    {
-      id: 3,
-      title: "Pani Tanker",
-      subtext: "Water delivery",
-      iconType: "water",
+    if (t.includes("dhool") || t.includes("mitti") || t.includes("construction")) {
+      return {
+        iconType: "truck",
+        iconLib: "FontAwesome5",
+        iconColor: "#4B5563",
+        bgColor: "#F3F4F6",
+      };
+    }
+    if (t.includes("pani") || t.includes("tanker") || t.includes("water")) {
+      return {
+        iconType: "water",
+        iconLib: "Ionicons",
+        iconColor: "#3B82F6",
+        bgColor: "#DBEAFE",
+      };
+    }
+    if (t.includes("catering") || t.includes("food") || t.includes("khana")) {
+      return {
+        iconType: "food-fork-drink",
+        iconLib: "MaterialCommunityIcons",
+        iconColor: "#10B981",
+        bgColor: "#D1FAE5",
+      };
+    }
+    return {
+      iconType: "build-outline",
       iconLib: "Ionicons",
-      iconColor: "#3B82F6",
-      bgColor: "#DBEAFE",
-    },
-    {
-      id: 4,
-      title: "Catering",
-      subtext: "Khana events ke liye",
-      iconType: "food-fork-drink",
-      iconLib: "MaterialCommunityIcons",
-      iconColor: "#10B981",
-      bgColor: "#D1FAE5",
-    },
-  ];
+      iconColor: "#7C3AED",
+      bgColor: "#F5F3FF",
+    };
+  };
 
   const bookings = [
     {
@@ -120,27 +139,36 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="dark-content" backgroundColor="#F9F9F8" />
+
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Header Section */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={styles.greetingText}>Namaste 👋</Text>
-            <TouchableOpacity style={styles.locationContainer} activeOpacity={0.7}>
-              <Text style={styles.locationText}>Agra, UP</Text>
-              <Ionicons name="caret-down" size={14} color="#1E293B" style={styles.dropdownIcon} />
+            <TouchableOpacity
+              style={styles.avatarButton}
+              activeOpacity={0.8}
+              onPress={() => router.replace("/profile")}
+            >
+              <View style={styles.avatarWrapper}>
+                <Ionicons name="person" size={20} color="#FFF" />
+              </View>
             </TouchableOpacity>
-          </View>
-          <TouchableOpacity 
-            style={styles.avatarButton} 
-            activeOpacity={0.8}
-            onPress={handleLogout}
-            title="Logout"
-          >
-            <View style={styles.avatarWrapper}>
-              <Ionicons name="person" size={20} color="#5B21B6" />
+            <View style={styles.welcomeBlock}>
+              <Text style={styles.greetingText}>Namaste {userName ? userName.trim().split(" ")[0] : "User"} 👋</Text>
+              <TouchableOpacity style={styles.locationContainer} activeOpacity={0.7}>
+                <Ionicons name="location-sharp" size={13} color="#A2441D" style={{ marginRight: 2 }} />
+                <Text style={styles.locationText}>Location</Text>
+              </TouchableOpacity>
             </View>
+          </View>
+          <TouchableOpacity
+            style={styles.notificationButton}
+            activeOpacity={0.8}
+            onPress={() => Alert.alert("Notifications", "No new notifications")}
+          >
+            <Ionicons name="notifications-outline" size={22} color="#1E293B" />
           </TouchableOpacity>
         </View>
 
@@ -171,15 +199,38 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.gridContainer}>
-          {services.map((service) => (
-            <TouchableOpacity key={service.id} style={styles.gridCard} activeOpacity={0.9}>
-              <View style={[styles.iconContainer, { backgroundColor: service.bgColor }]}>
-                {renderIcon(service.iconType, service.iconLib, service.iconColor)}
-              </View>
-              <Text style={styles.serviceTitle}>{service.title}</Text>
-              <Text style={styles.serviceSubtext}>{service.subtext}</Text>
-            </TouchableOpacity>
-          ))}
+          {loadingServices ? (
+            <Text style={styles.loadingTextCenter}>Loading services...</Text>
+          ) : services.length === 0 ? (
+            <Text style={styles.loadingTextCenter}>No services available</Text>
+          ) : (
+            services.map((service) => {
+              const design = getServiceDesign(service.title);
+              const hasImage = service.image && service.image.length > 0 && service.image[0]?.url;
+              return (
+                <TouchableOpacity
+                  key={service.id || service._id}
+                  style={styles.gridCard}
+                  activeOpacity={0.9}
+                  onPress={() => router.push({ pathname: "/service-detail", params: { id: service.id || service._id } })}
+                >
+                  <View style={[styles.iconContainer, { backgroundColor: design.bgColor }]}>
+                    {hasImage ? (
+                      <Image
+                        source={{ uri: service.image[0].url }}
+                        style={{ width: "100%", height: "100%", borderRadius: 30 }}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      renderIcon(design.iconType, design.iconLib, design.iconColor)
+                    )}
+                  </View>
+                  <Text style={styles.serviceTitle}>{service.title}</Text>
+                  <Text style={styles.serviceSubtext} numberOfLines={2}>{service.description || "Service Details"}</Text>
+                </TouchableOpacity>
+              );
+            })
+          )}
         </View>
 
         {/* RECENT BOOKINGS Section */}
@@ -207,61 +258,8 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
 
-      {/* Bottom Navigation Tab */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity 
-          style={styles.navItem} 
-          onPress={() => setSelectedTab("Home")} 
-          activeOpacity={0.8}
-        >
-          <Ionicons 
-            name={selectedTab === "Home" ? "home" : "home-outline"} 
-            size={22} 
-            color={selectedTab === "Home" ? "#A2441D" : "#64748B"} 
-          />
-          <Text style={[styles.navText, selectedTab === "Home" && styles.activeNavText]}>Home</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.navItem} 
-          onPress={() => setSelectedTab("Bookings")} 
-          activeOpacity={0.8}
-        >
-          <Ionicons 
-            name={selectedTab === "Bookings" ? "clipboard" : "clipboard-outline"} 
-            size={22} 
-            color={selectedTab === "Bookings" ? "#A2441D" : "#64748B"} 
-          />
-          <Text style={[styles.navText, selectedTab === "Bookings" && styles.activeNavText]}>Bookings</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.navItem} 
-          onPress={() => setSelectedTab("Search")} 
-          activeOpacity={0.8}
-        >
-          <Ionicons 
-            name={selectedTab === "Search" ? "search" : "search-outline"} 
-            size={22} 
-            color={selectedTab === "Search" ? "#A2441D" : "#64748B"} 
-          />
-          <Text style={[styles.navText, selectedTab === "Search" && styles.activeNavText]}>Search</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.navItem} 
-          onPress={() => setSelectedTab("Profile")} 
-          activeOpacity={0.8}
-        >
-          <Ionicons 
-            name={selectedTab === "Profile" ? "person" : "person-outline"} 
-            size={22} 
-            color={selectedTab === "Profile" ? "#A2441D" : "#64748B"} 
-          />
-          <Text style={[styles.navText, selectedTab === "Profile" && styles.activeNavText]}>Profile</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+      <BottomTab active="Home" />
+    </View>
   );
 }
 
@@ -278,48 +276,66 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 20,
+    marginTop: 10,
     marginBottom: 20,
   },
   headerLeft: {
-    flexDirection: "column",
-  },
-  greetingText: {
-    fontSize: 14,
-    color: "#94A3B8",
-    fontWeight: "500",
-  },
-  locationContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 4,
   },
-  locationText: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-  dropdownIcon: {
-    marginLeft: 6,
-    marginTop: 2,
+  welcomeBlock: {
+    flexDirection: "column",
+    marginLeft: 12,
   },
   avatarButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#FAF5FF",
+    backgroundColor: "#A2441D",
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#F3E8FF",
+    shadowColor: "#A2441D",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
   },
   avatarWrapper: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: "#F5F3FF",
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
     alignItems: "center",
     justifyContent: "center",
+  },
+  greetingText: {
+    fontSize: 20,
+    color: "#0F172A",
+    fontWeight: "800",
+  },
+  locationContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: -2,
+  },
+  locationText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#64748B",
+  },
+  dropdownIcon: {
+    marginLeft: 3,
+    marginTop: 1,
+  },
+  notificationButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#FFF",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
   },
   searchSection: {
     flexDirection: "row",
@@ -509,5 +525,13 @@ const styles = StyleSheet.create({
   activeNavText: {
     color: "#A2441D",
     fontWeight: "700",
+  },
+  loadingTextCenter: {
+    fontSize: 14,
+    color: "#64748B",
+    textAlign: "center",
+    width: "100%",
+    paddingVertical: 24,
+    fontWeight: "500",
   },
 });
