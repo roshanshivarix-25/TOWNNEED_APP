@@ -156,7 +156,13 @@ export default function ProfileScreen() {
               <TouchableOpacity
                 style={styles.menuItem}
                 activeOpacity={0.7}
-                onPress={() => Alert.alert(item.title, `Opening ${item.title}...`)}
+                onPress={() => {
+                  if (item.id === 'vendor') {
+                    router.navigate('/create-vendor');
+                  } else {
+                    Alert.alert(item.title, `Opening ${item.title}...`);
+                  }
+                }}
               >
                 <View style={styles.menuLeft}>
                   <Text style={styles.menuEmoji}>{item.emoji}</Text>

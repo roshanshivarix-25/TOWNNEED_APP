@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -7,70 +7,72 @@ import {
   TouchableOpacity,
   Alert,
   StatusBar,
+  ActivityIndicator,
 } from "react-native";
 import BottomTab from "../Components/BottomTab";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
+import { useNavigation, useRouter } from "expo-router";
+import { getUserBookingsApi } from "../api/services";
 
 export default function BookingsScreen() {
   const insets = useSafeAreaInsets();
-  const activeBooking = {
-    id: "active-1",
-    title: "Dhool — 2 trolley Mitti",
-    orderId: "TN-DH-4821",
-    provider: "Ramesh Kumar",
-    eta: "~35 min",
-    status: "On the way",
-    iconType: "truck",
-    iconLib: "FontAwesome5",
-    iconColor: "#4B5563",
-    bgColor: "#FEF3C7", // Soft warm background
-    badgeBg: "#FEF3C7",
-    badgeColor: "#B45309",
-    progress: 0.6, // 60% progress
+  const navigation = useNavigation();
+  const router = useRouter();
+
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchBookings = async () => {
+    try {
+      setLoading(true);
+      const data = await getUserBookingsApi();
+      setBookings(data || []);
+    } catch (err) {
+      console.log("Failed to load user bookings:", err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const pastBookings = [
-    {
-      id: "past-1",
-      title: "Tent — Basic Shamiyana",
-      time: "5 din pehle",
-      price: "₹8,000",
-      status: "Done ✓",
-      iconType: "campground",
-      iconLib: "FontAwesome5",
-      iconColor: "#D97706",
-      bgColor: "#FEE2E2", // Soft reddish/orange
-      badgeBg: "#DCFCE7",
-      badgeColor: "#166534",
-    },
-    {
-      id: "past-2",
-      title: "Pani Tanker — 1000 L",
-      time: "10 din pehle",
-      price: "₹350",
-      status: "Done ✓",
-      iconType: "water",
-      iconLib: "Ionicons",
-      iconColor: "#3B82F6",
-      bgColor: "#DBEAFE", // Soft blue
-      badgeBg: "#DCFCE7",
-      badgeColor: "#166534",
-    },
-    {
-      id: "past-3",
-      title: "Catering — 50 guests",
-      time: "1 mahine pehle",
-      price: "₹7,500",
-      status: "Done ✓",
-      iconType: "food-fork-drink",
-      iconLib: "MaterialCommunityIcons",
-      iconColor: "#10B981",
-      bgColor: "#D1FAE5", // Soft green
-      badgeBg: "#DCFCE7",
-      badgeColor: "#166534",
-    },
-  ];
+  useEffect(() => {
+    fetchBookings();
+    const unsubscribe = navigation.addListener("focus", () => {
+      fetchBookings();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  const getServiceDesign = (title) => {
+    const t = (title || "").toLowerCase();
+    if (t.includes("tent") || t.includes("shamiyana")) {
+      return { iconType: "campground", iconLib: "FontAwesome5", iconColor: "#D97706", bgColor: "#FEF3C7" };
+    }
+    if (t.includes("dhool") || t.includes("mitti") || t.includes("construction")) {
+      return { iconType: "truck", iconLib: "FontAwesome5", iconColor: "#4B5563", bgColor: "#F3F4F6" };
+    }
+    if (t.includes("pani") || t.includes("tanker") || t.includes("water")) {
+      return { iconType: "water", iconLib: "Ionicons", iconColor: "#3B82F6", bgColor: "#DBEAFE" };
+    }
+    if (t.includes("catering") || t.includes("food") || t.includes("khana")) {
+      return { iconType: "food-fork-drink", iconLib: "MaterialCommunityIcons", iconColor: "#10B981", bgColor: "#D1FAE5" };
+    }
+    return { iconType: "build-outline", iconLib: "Ionicons", iconColor: "#7C3AED", bgColor: "#F5F3FF" };
+  };
+
+  const getStatusStyle = (status) => {
+    const s = (status || "").toLowerCase();
+    if (s === "pending") {
+      return { bg: "#FEF3C7", text: "#B45309", label: "Pending", progress: 0.2 };
+    }
+    if (s === "accepted" || s === "on the way") {
+      return { bg: "#DBEAFE", text: "#1E40AF", label: s === "accepted" ? "Accepted" : "On the way", progress: 0.6 };
+    }
+    if (s === "completed" || s === "done") {
+      return { bg: "#DCFCE7", text: "#166534", label: "Completed", progress: 1.0 };
+    }
+    return { bg: "#F3F4F6", text: "#4B5563", label: status, progress: 0.5 };
+  };
 
   const renderIcon = (type, library, color) => {
     if (library === "FontAwesome5") {
@@ -83,18 +85,33 @@ export default function BookingsScreen() {
   };
 
   const handleTrackBooking = (booking) => {
-    Alert.alert(
-      "Tracking Order",
-      `Driver: ${booking.provider}\nETA: ${booking.eta}\nStatus: ${booking.status}`
-    );
+    router.push({
+      pathname: "/booking-details",
+      params: { id: booking.id || booking._id }
+    });
   };
 
   const handlePastBookingPress = (booking) => {
-    Alert.alert(
-      "Booking Details",
-      `${booking.title}\nDate: ${booking.time}\nAmount: ${booking.price}\nStatus: Completed`
-    );
+    router.push({
+      pathname: "/booking-details",
+      params: { id: booking.id || booking._id }
+    });
   };
+
+  // Filter bookings
+  const activeBookings = bookings.filter(
+    (b) =>
+      b.status?.toLowerCase() !== "completed" &&
+      b.status?.toLowerCase() !== "done" &&
+      b.status?.toLowerCase() !== "cancelled"
+  );
+
+  const pastBookings = bookings.filter(
+    (b) =>
+      b.status?.toLowerCase() === "completed" ||
+      b.status?.toLowerCase() === "done" ||
+      b.status?.toLowerCase() === "cancelled"
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: "#F9F9F8", paddingTop: insets.top }}>
@@ -107,79 +124,142 @@ export default function BookingsScreen() {
       </View>
 
       {/* SCROLLABLE CONTENT */}
-      <ScrollView 
-        style={styles.container}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ACTIVE SECTION */}
-        <View style={styles.sectionHeaderLabel}>
-          <Text style={styles.sectionTitleLabel}>ACTIVE</Text>
+      {loading ? (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <ActivityIndicator size="large" color="#A2441D" />
         </View>
-
-        <TouchableOpacity 
-          style={styles.activeCard} 
-          activeOpacity={0.9}
-          onPress={() => handleTrackBooking(activeBooking)}
+      ) : (
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
-          <View style={styles.cardHeader}>
-            <View style={[styles.iconContainer, { backgroundColor: activeBooking.bgColor }]}>
-              {renderIcon(activeBooking.iconType, activeBooking.iconLib, activeBooking.iconColor)}
-            </View>
-            <View style={styles.detailsContainer}>
-              <Text style={styles.bookingTitle}>{activeBooking.title}</Text>
-              <Text style={styles.bookingSubtext}>
-                Order #{activeBooking.orderId} • {activeBooking.provider}
-              </Text>
-            </View>
-            <View style={[styles.badge, { backgroundColor: activeBooking.badgeBg }]}>
-              <Text style={[styles.badgeText, { color: activeBooking.badgeColor }]}>
-                {activeBooking.status}
-              </Text>
-            </View>
+          {/* ACTIVE SECTION */}
+          <View style={styles.sectionHeaderLabel}>
+            <Text style={styles.sectionTitleLabel}>ACTIVE</Text>
           </View>
 
-          {/* Progress Bar */}
-          <View style={styles.progressContainer}>
-            <View style={styles.progressBarBg}>
-              <View style={[styles.progressBarFill, { width: `${activeBooking.progress * 100}%` }]} />
+          {activeBookings.length === 0 ? (
+            <View style={{ paddingVertical: 20, alignItems: "center" }}>
+              <Text style={{ color: "#94A3B8", fontWeight: "600" }}>No active bookings</Text>
             </View>
+          ) : (
+            activeBookings.map((booking) => {
+              const design = getServiceDesign(booking.serviceId?.title);
+              const statusStyle = getStatusStyle(booking.status);
+              const title = `${booking.serviceId?.title || "Service"} — ${booking.packageId?.title || "Booking"}`;
+              const orderId = (booking.id || booking._id || "").slice(-6).toUpperCase();
+              const provider = booking.vendorId?.businessName || "Pending allocation";
+
+              return (
+                <TouchableOpacity
+                  key={booking.id || booking._id}
+                  style={styles.activeCard}
+                  activeOpacity={0.9}
+                  onPress={() => handleTrackBooking(booking)}
+                >
+                  <View style={styles.cardHeader}>
+                    <View style={[styles.iconContainer, { backgroundColor: design.bgColor }]}>
+                      {renderIcon(design.iconType, design.iconLib, design.iconColor)}
+                    </View>
+                    <View style={styles.detailsContainer}>
+                      <Text style={styles.bookingTitle}>{title}</Text>
+                      <Text style={styles.bookingSubtext}>
+                        Order #{orderId} • {provider}
+                      </Text>
+                    </View>
+                    <View style={[styles.badge, { backgroundColor: statusStyle.bg }]}>
+                      <Text style={[styles.badgeText, { color: statusStyle.text }]}>
+                        {statusStyle.label}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Progress Bar */}
+                  <View style={styles.progressContainer}>
+                    <View style={styles.progressBarBg}>
+                      <View style={[styles.progressBarFill, { width: `${statusStyle.progress * 100}%` }]} />
+                    </View>
+                  </View>
+
+                  <Text style={styles.trackText}>
+                    Amount: <Text style={{ fontWeight: "700", color: "#0F172A" }}>₹{booking.totalAmount?.toLocaleString("en-IN")}</Text> · <Text style={styles.trackLink}>Tap details</Text>
+                  </Text>
+                </TouchableOpacity>
+              );
+            })
+          )}
+
+          {/* PAST BOOKINGS SECTION */}
+          <View style={styles.sectionHeaderLabel}>
+            <Text style={styles.sectionTitleLabel}>PAST BOOKINGS</Text>
           </View>
 
-          <Text style={styles.trackText}>
-            ETA: {activeBooking.eta} · <Text style={styles.trackLink}>Tap to track</Text>
-          </Text>
-        </TouchableOpacity>
+          {pastBookings.length === 0 ? (
+            <View style={{ paddingVertical: 20, alignItems: "center" }}>
+              <Text style={{ color: "#94A3B8", fontWeight: "600" }}>No past bookings</Text>
+            </View>
+          ) : (
+            pastBookings.map((booking) => {
+              const design = getServiceDesign(booking.serviceId?.title);
+              const statusStyle = getStatusStyle(booking.status);
+              const title = `${booking.serviceId?.title || "Service"} — ${booking.packageId?.title || "Booking"}`;
+              const formattedDate = booking.eventDate
+                ? new Date(booking.eventDate).toLocaleDateString("en-IN", {
+                    day: "numeric",
+                    month: "short",
+                  })
+                : "Done";
 
-        {/* PAST BOOKINGS SECTION */}
-        <View style={styles.sectionHeaderLabel}>
-          <Text style={styles.sectionTitleLabel}>PAST BOOKINGS</Text>
-        </View>
+              const isCancelled = booking.status?.toLowerCase() === "cancelled";
+              return (
+                <TouchableOpacity
+                  key={booking.id || booking._id}
+                  style={styles.activeCard}
+                  activeOpacity={0.9}
+                  onPress={() => handlePastBookingPress(booking)}
+                >
+                  <View style={styles.cardHeader}>
+                    <View style={[styles.iconContainer, { backgroundColor: design.bgColor }]}>
+                      {renderIcon(design.iconType, design.iconLib, design.iconColor)}
+                    </View>
+                    <View style={styles.detailsContainer}>
+                      <Text style={styles.bookingTitle}>{title}</Text>
+                      <Text style={styles.bookingSubtext}>
+                        {formattedDate} · <Text style={styles.priceText}>₹{booking.totalAmount?.toLocaleString("en-IN")}</Text>
+                      </Text>
+                    </View>
+                    <View style={[styles.badge, { backgroundColor: statusStyle.bg }]}>
+                      <Text style={[styles.badgeText, { color: statusStyle.text }]}>
+                        {statusStyle.label}
+                      </Text>
+                    </View>
+                  </View>
 
-        {pastBookings.map((booking) => (
-          <TouchableOpacity
-            key={booking.id}
-            style={styles.pastCard}
-            activeOpacity={0.8}
-            onPress={() => handlePastBookingPress(booking)}
-          >
-            <View style={[styles.iconContainer, { backgroundColor: booking.bgColor }]}>
-              {renderIcon(booking.iconType, booking.iconLib, booking.iconColor)}
-            </View>
-            <View style={styles.detailsContainer}>
-              <Text style={styles.bookingTitle}>{booking.title}</Text>
-              <Text style={styles.bookingSubtext}>
-                {booking.time} · <Text style={styles.priceText}>{booking.price}</Text>
-              </Text>
-            </View>
-            <View style={[styles.badge, { backgroundColor: booking.badgeBg }]}>
-              <Text style={[styles.badgeText, { color: booking.badgeColor }]}>
-                {booking.status}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+                  {!isCancelled && (
+                    <>
+                      {/* Progress Bar */}
+                      <View style={styles.progressContainer}>
+                        <View style={styles.progressBarBg}>
+                          <View style={[styles.progressBarFill, { width: `${statusStyle.progress * 100}%`, backgroundColor: "#166534" }]} />
+                        </View>
+                      </View>
+                      <Text style={styles.trackText}>
+                        Booking completed successfully. · <Text style={styles.trackLink}>View details</Text>
+                      </Text>
+                    </>
+                  )}
+                  {isCancelled && (
+                    <Text style={[styles.trackText, { marginTop: 10, color: "#EF4444" }]}>
+                      This booking was cancelled. · <Text style={styles.trackLink}>View details</Text>
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              );
+            })
+          )}
+        </ScrollView>
+      )}
       <BottomTab active="Bookings" />
     </View>
   );

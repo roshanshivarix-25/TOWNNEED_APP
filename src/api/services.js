@@ -64,4 +64,93 @@ export const getAddonsApi = async () => {
   }
 };
 
+export const getVendorsApi = async () => {
+  try {
+    console.log("[API] Calling getVendorsApi");
+    const response = await axiosInstance.get("/user/vendor/");
+    console.log("[API] getVendorsApi Success response:", response.data);
+    if (!response.data.success) {
+      throw new Error(response.data.message || "Failed to fetch vendors");
+    }
+    return response.data.data;
+  } catch (error) {
+    console.log("[API] getVendorsApi Error:", error.message);
+    throw error;
+  }
+};
 
+export const createBookingApi = async (bookingData) => {
+  try {
+    console.log("[API] Calling createBookingApi with:", bookingData);
+    const response = await axiosInstance.post("/bookings/", bookingData);
+    console.log("[API] createBookingApi Success response:", response.data);
+    if (!response.data.success) {
+      throw new Error(response.data.message || "Failed to create booking");
+    }
+    return response.data.data;
+  } catch (error) {
+    console.log("[API] createBookingApi Error:", error.message);
+    throw error;
+  }
+};
+
+export const createPaymentApi = async (paymentData) => {
+  try {
+    console.log("[API] Calling createPaymentApi with:", paymentData);
+    const response = await axiosInstance.post("/payments/create", paymentData);
+    console.log("[API] createPaymentApi Success response:", response.data);
+    if (!response.data.success) {
+      throw new Error(response.data.message || "Failed to create payment");
+    }
+    return response.data.data;
+  } catch (error) {
+    console.log("[API] createPaymentApi Error:", error.message);
+    throw error;
+  }
+};
+
+export const getUserBookingsApi = async () => {
+  try {
+    console.log("[API] Calling getUserBookingsApi");
+    const response = await axiosInstance.get("/bookings/my/");
+    console.log("[API] getUserBookingsApi Success response:", response.data);
+    if (!response.data.success) {
+      throw new Error(response.data.message || "Failed to fetch bookings");
+    }
+    return response.data.data;
+  } catch (error) {
+    console.log("[API] getUserBookingsApi Error:", error.message);
+    return [];
+  }
+};
+
+
+export const applyVendorApi = async (vendorData) => {
+  try {
+    console.log('[API] Calling applyVendorApi with:', vendorData);
+    const response = await axiosInstance.post('/user/vendor/apply/', vendorData);
+    console.log('[API] applyVendorApi Success response:', response.data);
+    if (!response.data.success) {
+      throw new Error(response.data.message || 'Failed to apply vendor');
+    }
+    return response.data.data;
+  } catch (error) {
+    console.log('[API] applyVendorApi Error:', error.message);
+    throw error;
+  }
+};
+
+export const getBookingDetailsApi = async (bookingId) => {
+  try {
+    console.log('[API] Calling getBookingDetailsApi for:', bookingId);
+    const response = await axiosInstance.get(`/bookings/${bookingId}`);
+    console.log('[API] getBookingDetailsApi Success response:', response.data);
+    if (!response.data.success) {
+      throw new Error(response.data.message || 'Failed to fetch booking details');
+    }
+    return response.data.data;
+  } catch (error) {
+    console.log('[API] getBookingDetailsApi Error:', error.message);
+    throw error;
+  }
+};

@@ -1,5 +1,5 @@
-import { useRouter, useNavigation } from "expo-router";
-import { useState, useEffect } from "react";
+import { useRouter, useNavigation, useFocusEffect } from "expo-router";
+import { useState, useEffect, useCallback } from "react";
 import {
   StyleSheet,
   Text,
@@ -10,13 +10,32 @@ import {
   StatusBar,
   Image,
   Alert,
+  RefreshControl,
+  BackHandler,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getMeApi } from "../api/auth";
-import { getServicesApi } from "../api/services";
+import { getServicesApi, getUserBookingsApi } from "../api/services";
 import BottomTab from "../Components/BottomTab";
+
+function ServiceImage({ imageUrl, fallbackIcon }) {
+  const [imageError, setImageError] = useState(false);
+
+  if (imageUrl && !imageError) {
+    return (
+      <Image
+        source={{ uri: imageUrl }}
+        style={{ width: "100%", height: "100%", borderRadius: 30 }}
+        resizeMode="cover"
+        onError={() => setImageError(true)}
+      />
+    );
+  }
+  return fallbackIcon;
+}
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -25,43 +44,86 @@ export default function HomeScreen() {
   const [userName, setUserName] = useState("Guest");
   const [services, setServices] = useState([]);
   const [loadingServices, setLoadingServices] = useState(true);
+  const [completedBookings, setCompletedBookings] = useState([]);
+  const [loadingBookings, setLoadingBookings] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchBookings = async () => {
+    try {
+      setLoadingBookings(true);
+      const data = await getUserBookingsApi();
+      const completed = (data || []).filter(
+        (b) =>
+          b.status?.toLowerCase() === "completed" || b.status?.toLowerCase() === "cancelled"
+      );
+      setCompletedBookings(completed);
+    } catch (err) {
+      console.log("Failed to load user bookings in HomeScreen:", err.message);
+    } finally {
+      setLoadingBookings(false);
+    }
+  };
+
+  const fetchUser = async () => {
+    try {
+      const userJson = await AsyncStorage.getItem("user");
+      if (userJson) {
+        const userObj = JSON.parse(userJson);
+        setUserName(userObj.fullName || userObj.name || "User");
+      } else {
+        const apiUser = await getMeApi().catch(() => null);
+        setUserName(apiUser?.fullName || apiUser?.name || "User");
+      }
+    } catch (e) {
+      console.log("Failed to load user details:", e);
+    }
+  };
+
+  const fetchServices = async () => {
+    try {
+      setLoadingServices(true);
+      const data = await getServicesApi();
+      setServices(data || []);
+    } catch (err) {
+      console.log("Failed to load services:", err.message);
+    } finally {
+      setLoadingServices(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([fetchUser(), fetchServices(), fetchBookings()]);
+    setRefreshing(false);
+  };
 
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const userJson = await AsyncStorage.getItem("user");
-        if (userJson) {
-          const userObj = JSON.parse(userJson);
-          setUserName(userObj.fullName || userObj.name || "User");
-        } else {
-          const apiUser = await getMeApi().catch(() => null);
-          setUserName(apiUser?.fullName || apiUser?.name || "User");
-        }
-      } catch (e) {
-        console.log("Failed to load user details:", e);
-      }
-    };
-
-    const fetchServices = async () => {
-      try {
-        setLoadingServices(true);
-        const data = await getServicesApi();
-        setServices(data || []);
-      } catch (err) {
-        console.log("Failed to load services:", err.message);
-      } finally {
-        setLoadingServices(false);
-      }
-    };
-
     fetchUser();
     fetchServices();
+    fetchBookings();
 
     const unsubscribe = navigation.addListener("focus", () => {
       fetchUser();
+      fetchBookings();
     });
     return unsubscribe;
   }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        // Intercept back press and return true to prevent default back navigation to login screen
+        return true;
+      };
+
+      const subscription = BackHandler.addEventListener(
+        "hardwareBackPress",
+        onBackPress
+      );
+
+      return () => subscription.remove();
+    }, [])
+  );
 
   const getServiceDesign = (title) => {
     const t = (title || "").toLowerCase();
@@ -105,28 +167,23 @@ export default function HomeScreen() {
     };
   };
 
-  const bookings = [
-    {
-      id: 1,
-      title: "Tent — Basic Shamiyana",
-      time: "5 din pehle",
-      price: "₹8,000",
-      status: "Done ✓",
-      iconType: "campground",
-      bgColor: "#FEF3C7",
-      iconColor: "#D97706",
-    },
-    {
-      id: 2,
-      title: "Dhool — 2 trolley",
-      time: "2 hafte pehle",
-      price: "₹1,800",
-      status: "Done ✓",
-      iconType: "truck",
-      bgColor: "#F3F4F6",
-      iconColor: "#4B5563",
-    },
-  ];
+  const getStatusStyle = (status) => {
+    const s = (status || "").toLowerCase();
+    if (s === "pending") {
+      return { bg: "#FEF3C7", text: "#B45309", label: "Pending" };
+    }
+    if (s === "accepted" || s === "on the way") {
+      return { bg: "#DBEAFE", text: "#1E40AF", label: s === "accepted" ? "Accepted" : "On the way" };
+    }
+    if (s === "completed" || s === "done") {
+      return { bg: "#DCFCE7", text: "#166534", label: "Completed" };
+    }
+    if (s === "cancelled") {
+      return { bg: "#FEE2E2", text: "#991B1B", label: "Cancelled" };
+    }
+    return { bg: "#F3F4F6", text: "#4B5563", label: status };
+  };
+
 
   const renderIcon = (type, library, color) => {
     if (library === "FontAwesome5") {
@@ -142,7 +199,18 @@ export default function HomeScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="dark-content" backgroundColor="#F9F9F8" />
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={["#A2441D"]}
+            tintColor="#A2441D"
+          />
+        }
+      >
         {/* Header Section */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -173,14 +241,20 @@ export default function HomeScreen() {
         </View>
 
         {/* Search Bar Section */}
-        <View style={styles.searchSection}>
+        <TouchableOpacity
+          style={styles.searchSection}
+          activeOpacity={0.9}
+          onPress={() => router.push("/search")}
+        >
           <Ionicons name="search" size={20} color="#7C3AED" style={styles.searchIcon} />
           <TextInput
             placeholder="Service khojo..."
             placeholderTextColor="#94A3B8"
             style={styles.searchInput}
+            editable={false}
+            pointerEvents="none"
           />
-        </View>
+        </TouchableOpacity>
 
         {/* Promotion Banner Card */}
         <View style={styles.promoBanner}>
@@ -206,7 +280,9 @@ export default function HomeScreen() {
           ) : (
             services.map((service) => {
               const design = getServiceDesign(service.title);
-              const hasImage = service.image && service.image.length > 0 && service.image[0]?.url;
+              const imageUrl = Array.isArray(service.image)
+                ? (Array.isArray(service.image[0]) ? service.image[0][0]?.url : service.image[0]?.url)
+                : (typeof service.image === "string" ? service.image : null);
               return (
                 <TouchableOpacity
                   key={service.id || service._id}
@@ -215,15 +291,10 @@ export default function HomeScreen() {
                   onPress={() => router.push({ pathname: "/service-detail", params: { id: service.id || service._id } })}
                 >
                   <View style={[styles.iconContainer, { backgroundColor: design.bgColor }]}>
-                    {hasImage ? (
-                      <Image
-                        source={{ uri: service.image[0].url }}
-                        style={{ width: "100%", height: "100%", borderRadius: 30 }}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      renderIcon(design.iconType, design.iconLib, design.iconColor)
-                    )}
+                    <ServiceImage
+                      imageUrl={imageUrl}
+                      fallbackIcon={renderIcon(design.iconType, design.iconLib, design.iconColor)}
+                    />
                   </View>
                   <Text style={styles.serviceTitle}>{service.title}</Text>
                   <Text style={styles.serviceSubtext} numberOfLines={2}>{service.description || "Service Details"}</Text>
@@ -239,22 +310,53 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.bookingsContainer}>
-          {bookings.map((booking) => (
-            <View key={booking.id} style={styles.bookingCard}>
-              <View style={[styles.bookingIconContainer, { backgroundColor: booking.bgColor }]}>
-                <FontAwesome5 name={booking.iconType} size={18} color={booking.iconColor} />
-              </View>
-              <View style={styles.bookingDetails}>
-                <Text style={styles.bookingTitle}>{booking.title}</Text>
-                <Text style={styles.bookingSubtext}>
-                  {booking.time} • <Text style={styles.bookingPrice}>{booking.price}</Text>
-                </Text>
-              </View>
-              <View style={styles.statusBadge}>
-                <Text style={styles.statusText}>{booking.status}</Text>
-              </View>
+          {loadingBookings ? (
+            <ActivityIndicator size="small" color="#A2441D" style={{ marginVertical: 20 }} />
+          ) : completedBookings.length === 0 ? (
+            <View style={{ paddingVertical: 20, alignItems: "center" }}>
+              <Text style={{ color: "#94A3B8", fontWeight: "600" }}>No completed bookings yet</Text>
             </View>
-          ))}
+          ) : (
+            completedBookings.slice(0, 5).map((booking) => {
+              const design = getServiceDesign(booking.serviceId?.title);
+              const title = `${booking.serviceId?.title || "Service"} — ${booking.packageId?.title || "Booking"}`;
+              const formattedDate = booking.eventDate
+                ? new Date(booking.eventDate).toLocaleDateString("en-IN", {
+                    day: "numeric",
+                    month: "short",
+                  })
+                : "Done";
+              const statusStyle = getStatusStyle(booking.status);
+
+              return (
+                <TouchableOpacity
+                  key={booking.id || booking._id}
+                  style={styles.bookingCard}
+                  activeOpacity={0.8}
+                  onPress={() => router.push({ pathname: "/booking-details", params: { id: booking.id || booking._id } })}
+                >
+                  <View style={[styles.bookingIconContainer, { backgroundColor: design.bgColor }]}>
+                    {design.iconLib === "FontAwesome5" ? (
+                      <FontAwesome5 name={design.iconType} size={18} color={design.iconColor} />
+                    ) : design.iconLib === "MaterialCommunityIcons" ? (
+                      <MaterialCommunityIcons name={design.iconType} size={20} color={design.iconColor} />
+                    ) : (
+                      <Ionicons name={design.iconType} size={20} color={design.iconColor} />
+                    )}
+                  </View>
+                  <View style={styles.bookingDetails}>
+                    <Text style={styles.bookingTitle}>{title}</Text>
+                    <Text style={styles.bookingSubtext}>
+                      {formattedDate} • <Text style={styles.bookingPrice}>₹{booking.totalAmount?.toLocaleString("en-IN")}</Text>
+                    </Text>
+                  </View>
+                  <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
+                    <Text style={[styles.statusText, { color: statusStyle.text }]}>{statusStyle.label}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          )}
         </View>
       </ScrollView>
 

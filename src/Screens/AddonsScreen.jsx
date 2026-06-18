@@ -72,15 +72,6 @@ export default function AddonsScreen() {
     setSelectedAddonIds(next);
   };
 
-  const getAddonEmoji = (title) => {
-    const t = (title || "").toLowerCase();
-    if (t.includes("generator") || t.includes("bijli")) return "⚡";
-    if (t.includes("chair") || t.includes("kursi")) return "🪑";
-    if (t.includes("cooler") || t.includes("ac")) return "❄️";
-    if (t.includes("sound") || t.includes("dj") || t.includes("speaker")) return "🎵";
-    if (t.includes("flower") || t.includes("phool") || t.includes("decor")) return "💐";
-    return "📦";
-  };
 
   const packagePrice = selectedPackage?.price || 0;
 
@@ -93,12 +84,18 @@ export default function AddonsScreen() {
 
   const handleProceedToVendors = () => {
     const selectedList = addons.filter((addon) => selectedAddonIds.has(addon.id));
-    Alert.alert(
-      "Booking summary",
-      `Package: ${selectedPackage?.title || "None"} (₹${packagePrice.toLocaleString("en-IN")})\nAdd-ons: ${
-        selectedList.map((a) => a.title).join(", ") || "None"
-      } (₹${addonsPrice.toLocaleString("en-IN")})\nTotal Price: ₹${totalPrice.toLocaleString("en-IN")}`
-    );
+    router.navigate({
+      pathname: "/vendor",
+      params: {
+        serviceId,
+        eventType,
+        guestCount,
+        formValues: formValuesStr,
+        selectedPackage: JSON.stringify(selectedPackage),
+        selectedAddons: JSON.stringify(selectedList),
+        totalPrice: totalPrice,
+      },
+    });
   };
 
   if (loading) {
@@ -169,7 +166,7 @@ export default function AddonsScreen() {
                   {/* Body Text */}
                   <View style={styles.addonInfo}>
                     <Text style={styles.addonTitle}>
-                      {getAddonEmoji(addon.title)} {addon.title}
+                      {addon.title}
                     </Text>
                     {addon.description ? (
                       <Text style={styles.addonDesc}>{addon.description}</Text>

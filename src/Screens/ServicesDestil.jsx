@@ -11,6 +11,7 @@ import {
   StatusBar,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from "react-native";
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -30,6 +31,7 @@ export default function ServicesDestil() {
   const [selectedEventType, setSelectedEventType] = useState(null);
   const [selectedGuestOption, setSelectedGuestOption] = useState(null);
   const [formValues, setFormValues] = useState({});
+  const [imageError, setImageError] = useState(false);
 
   // DatePicker state
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -56,21 +58,30 @@ export default function ServicesDestil() {
           const data = await getServiceDetailApi(id);
           setService(data);
           
-          // Set initial defaults
-          if (data?.serviceData?.eventTypes?.length > 0) {
-            setSelectedEventType(data.serviceData.eventTypes[0]);
+          // Set initial defaults dynamically
+          const serviceDataKeys = Object.keys(data?.serviceData || {}).filter(
+            key => Array.isArray(data.serviceData[key]) && key !== "fields"
+          );
+          
+          const firstKey = serviceDataKeys[0];
+          const secondKey = serviceDataKeys[1];
+
+          if (firstKey && data.serviceData[firstKey]?.length > 0) {
+            setSelectedEventType(data.serviceData[firstKey][0]);
           }
-          if (data?.serviceData?.guestOptions?.length > 0) {
-            setSelectedGuestOption(data.serviceData.guestOptions[0]);
+          if (secondKey && data.serviceData[secondKey]?.length > 0) {
+            setSelectedGuestOption(data.serviceData[secondKey][0]);
           }
           
           // Initialize form fields
           const initialForm = {};
-          if (data?.serviceData?.fields) {
-            data.serviceData.fields.forEach(field => {
-              initialForm[field.name] = "";
-            });
-          }
+          const fields = (data?.serviceData?.fields || [
+            { name: "eventDate", label: "Event Date", type: "date" },
+            { name: "venue", label: "Venue/Delivery Address", type: "text" }
+          ]).filter(field => field.name !== "eventDuration" && field.name !== "duration");
+          fields.forEach(field => {
+            initialForm[field.name] = "";
+          });
           setFormValues(initialForm);
         }
       } catch (err) {
@@ -108,13 +119,15 @@ export default function ServicesDestil() {
   const handleProceed = () => {
     // Validate fields
     let missingField = null;
-    if (service?.serviceData?.fields) {
-      service.serviceData.fields.forEach(field => {
-        if (!formValues[field.name]?.trim()) {
-          missingField = field.label;
-        }
-      });
-    }
+    const fields = (service?.serviceData?.fields || [
+      { name: "eventDate", label: "Event Date", type: "date" },
+      { name: "venue", label: "Venue/Delivery Address", type: "text" }
+    ]).filter(field => field.name !== "eventDuration" && field.name !== "duration");
+    fields.forEach(field => {
+      if (!formValues[field.name]?.trim()) {
+        missingField = field.label;
+      }
+    });
 
     if (missingField) {
       Alert.alert("Error", `Please enter ${missingField}`);
@@ -147,6 +160,17 @@ export default function ServicesDestil() {
       </View>
     );
   }
+
+  const serviceDataKeys = Object.keys(service?.serviceData || {}).filter(
+    key => Array.isArray(service.serviceData[key]) && key !== "fields"
+  );
+  const firstKey = serviceDataKeys[0];
+  const secondKey = serviceDataKeys[1];
+
+  const fields = (service?.serviceData?.fields || [
+    { name: "eventDate", label: "Event Date", type: "date" },
+    { name: "venue", label: "Venue/Delivery Address", type: "text" }
+  ]).filter(field => field.name !== "eventDuration" && field.name !== "duration");
 
   return (
     <KeyboardAvoidingView
@@ -181,22 +205,37 @@ export default function ServicesDestil() {
           {/* PROMO HERO CARD */}
           <View style={styles.heroCard}>
             <View style={styles.heroIconWrapper}>
-              <FontAwesome5 name="campground" size={42} color="#D97706" />
+              {(() => {
+                const imageUrl = Array.isArray(service.image)
+                  ? (Array.isArray(service.image[0]) ? service.image[0][0]?.url : service.image[0]?.url)
+                  : (typeof service.image === "string" ? service.image : null);
+                if (imageUrl && !imageError) {
+                  return (
+                    <Image
+                      source={{ uri: imageUrl }}
+                      style={{ width: "100%", height: "100%", borderRadius: 40 }}
+                      resizeMode="cover"
+                      onError={() => setImageError(true)}
+                    />
+                  );
+                }
+                return <Ionicons name="image-outline" size={42} color="#94A3B8" />;
+              })()}
             </View>
             <Text style={styles.heroTitle}>
-              {service.serviceData?.eventTypes ? service.serviceData.eventTypes.slice(0, 3).join(" · ") : service.title}
+              {firstKey && service.serviceData[firstKey] ? service.serviceData[firstKey].slice(0, 3).join(" · ") : service.title}
             </Text>
             <Text style={styles.heroSubtitle}>
               {service.description || "Setup + breakdown included"}
             </Text>
           </View>
 
-          {/* EVENT TYPE SECTION */}
-          {service.serviceData?.eventTypes && (
+          {/* FIRST DYNAMIC OPTION SECTION */}
+          {firstKey && service.serviceData[firstKey] && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>EVENT TYPE CHUNEIN</Text>
+              <Text style={styles.sectionTitle}>{firstKey.toUpperCase()}</Text>
               <View style={styles.tagGrid}>
-                {service.serviceData.eventTypes.map((type) => {
+                {service.serviceData[firstKey].map((type) => {
                   const isSelected = selectedEventType === type;
                   return (
                     <TouchableOpacity
@@ -215,12 +254,12 @@ export default function ServicesDestil() {
             </View>
           )}
 
-          {/* GUEST OPTIONS SECTION */}
-          {service.serviceData?.guestOptions && (
+          {/* SECOND DYNAMIC OPTION SECTION */}
+          {secondKey && service.serviceData[secondKey] && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>GUESTS KI TADAD</Text>
+              <Text style={styles.sectionTitle}>{secondKey.toUpperCase()}</Text>
               <View style={styles.guestGrid}>
-                {service.serviceData.guestOptions.map((opt) => {
+                {service.serviceData[secondKey].map((opt) => {
                   const isSelected = selectedGuestOption === opt;
                   return (
                     <TouchableOpacity
@@ -240,11 +279,11 @@ export default function ServicesDestil() {
           )}
 
           {/* DYNAMIC FIELDS SECTION */}
-          {service.serviceData?.fields && (
+          {fields && fields.length > 0 && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>DATE AUR VENUE</Text>
               <View style={styles.fieldsContainer}>
-                {service.serviceData.fields.map((field) => {
+                {fields.map((field) => {
                   const isDateField = field.type === "date" || field.name.toLowerCase().includes("date");
                   if (isDateField) {
                     return (

@@ -5,10 +5,12 @@ import {
   View,
   TextInput,
   FlatList,
+  ScrollView,
   TouchableOpacity,
   Image,
   ActivityIndicator,
   Platform,
+  StatusBar,
 } from "react-native";
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -54,7 +56,7 @@ export default function SearchScreen() {
     setFilteredServices(filtered);
   }, [searchQuery, services]);
 
-  const popularSearches = ["Tent", "Mitti", "Tanker", "Catering"];
+  const popularSearches = services.slice(0, 5).map((s) => s.title).filter(Boolean);
 
   const getServiceDesign = (title) => {
     const t = (title || "").toLowerCase();
@@ -85,14 +87,16 @@ export default function SearchScreen() {
 
   const renderServiceItem = ({ item }) => {
     const design = getServiceDesign(item.title);
-    const hasImage = item.image && item.image.length > 0 && item.image[0]?.url;
+    const imageUrl = Array.isArray(item.image)
+      ? (Array.isArray(item.image[0]) ? item.image[0][0]?.url : item.image[0]?.url)
+      : (typeof item.image === "string" ? item.image : null);
 
     return (
       <TouchableOpacity style={styles.card} activeOpacity={0.8}>
         <View style={[styles.iconContainer, { backgroundColor: design.bgColor }]}>
-          {hasImage ? (
+          {imageUrl ? (
             <Image
-              source={{ uri: item.image[0].url }}
+              source={{ uri: imageUrl }}
               style={styles.cardImage}
               resizeMode="cover"
             />
@@ -113,6 +117,7 @@ export default function SearchScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      <StatusBar barStyle="light-content" backgroundColor="#000000" />
       {/* Search Bar Container */}
       <View style={styles.searchHeader}>
         <View style={styles.inputWrapper}>
@@ -145,17 +150,22 @@ export default function SearchScreen() {
           {!searchQuery ? (
             <View style={styles.tagsSection}>
               <Text style={styles.tagsTitle}>Popular Searches</Text>
-              <View style={styles.tagsContainer}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.tagsScrollContent}
+              >
                 {popularSearches.map((tag) => (
                   <TouchableOpacity
                     key={tag}
                     style={styles.tagButton}
                     onPress={() => setSearchQuery(tag)}
+                    activeOpacity={0.8}
                   >
                     <Text style={styles.tagText}>{tag}</Text>
                   </TouchableOpacity>
                 ))}
-              </View>
+              </ScrollView>
             </View>
           ) : null}
 
@@ -192,14 +202,14 @@ const styles = StyleSheet.create({
   searchHeader: {
     paddingHorizontal: 20,
     paddingVertical: 14,
-    backgroundColor: "#FFF",
-    borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
+    backgroundColor: "#F9F9F8",
   },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F1F5F9",
+    backgroundColor: "#FFF",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
     borderRadius: 14,
     height: 48,
     paddingHorizontal: 12,
@@ -232,7 +242,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   tagsSection: {
-    paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 10,
   },
@@ -242,10 +251,10 @@ const styles = StyleSheet.create({
     color: "#94A3B8",
     letterSpacing: 0.5,
     marginBottom: 12,
+    paddingHorizontal: 20,
   },
-  tagsContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+  tagsScrollContent: {
+    paddingHorizontal: 20,
   },
   tagButton: {
     backgroundColor: "#FFF",
