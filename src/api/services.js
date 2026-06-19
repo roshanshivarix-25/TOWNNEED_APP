@@ -94,20 +94,20 @@ export const createBookingApi = async (bookingData) => {
   }
 };
 
-export const createPaymentApi = async (paymentData) => {
-  try {
-    console.log("[API] Calling createPaymentApi with:", paymentData);
-    const response = await axiosInstance.post("/payments/create", paymentData);
-    console.log("[API] createPaymentApi Success response:", response.data);
-    if (!response.data.success) {
-      throw new Error(response.data.message || "Failed to create payment");
-    }
-    return response.data.data;
-  } catch (error) {
-    console.log("[API] createPaymentApi Error:", error.message);
-    throw error;
-  }
-};
+// export const createPaymentApi = async (paymentData) => {
+//   try {
+//     console.log("[API] Calling createPaymentApi with:", paymentData);
+//     const response = await axiosInstance.post("/payments/create", paymentData);
+//     console.log("[API] createPaymentApi Success response:", response.data);
+//     if (!response.data.success) {
+//       throw new Error(response.data.message || "Failed to create payment");
+//     }
+//     return response.data.data;
+//   } catch (error) {
+//     console.log("[API] createPaymentApi Error:", error.message);
+//     throw error;
+//   }
+// };
 
 export const getUserBookingsApi = async () => {
   try {
@@ -154,3 +154,31 @@ export const getBookingDetailsApi = async (bookingId) => {
     throw error;
   }
 };
+
+export const createPaymentOrderApi = async (bookingId, amount) => {
+  try {
+    console.log("[API] Calling createPaymentOrderApi for booking:", bookingId, "amount:", amount);
+    const response = await axiosInstance.post("/payment/create-order", {
+      bookingId,
+      amount,
+    });
+    console.log("[API] createPaymentOrderApi Success response:", response.data);
+    return response.data; // Return full response to get data object
+  } catch (error) {
+    console.log("[API] createPaymentOrderApi Error:", error.message);
+    throw error;
+  }
+};
+
+export const verifyPaymentApi = async (payload) => {
+  try {
+    console.log("[API] Calling verifyPaymentApi with payload:", payload);
+    const response = await axiosInstance.post("/payment/verify", payload);
+    console.log("[API] verifyPaymentApi Success response:", response.data);
+    return response.data; // Return full response
+  } catch (error) {
+    console.log("[API] verifyPaymentApi Error:", error.message);
+    throw error;
+  }
+};
+

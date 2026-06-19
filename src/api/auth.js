@@ -86,11 +86,12 @@ export const getMeApi = async () => {
   }
 };
 
-export const updateProfileApi = async (fullName, email, password) => {
+export const updateProfileApi = async (fullName, email, password, location) => {
   try {
-    console.log("[API] Calling updateProfileApi with:", { fullName, email });
+    console.log("[API] Calling updateProfileApi with:", { fullName, email, location });
     const payload = { fullName, email };
     if (password) payload.password = password;
+    if (location) payload.location = location;
 
     const response = await axiosInstance.patch("/user/profile", payload);
     console.log("[API] updateProfileApi Success response:", response.data);

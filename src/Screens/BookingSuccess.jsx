@@ -29,6 +29,9 @@ export default function BookingSuccess() {
   const packageName = params.packageName || "Basic Shamiyana";
   const addonTitles = params.addonTitles || "Generator + Chairs";
   const vendorPhone = params.vendorPhone || "9876543210";
+  const paymentMethod = params.paymentMethod || "upi";
+  const paymentStatus = params.paymentStatus || "paid";
+  const transactionId = params.transactionId || "";
 
   // Animation values
   const scaleAnim = useRef(new Animated.Value(0.3)).current;
@@ -116,8 +119,23 @@ export default function BookingSuccess() {
         </View>
 
         {/* Status Text */}
-        <Text style={styles.statusTitle}>Booking confirmed!</Text>
+        <Text style={styles.statusTitle}>Booking Confirmed! 🎉</Text>
         <Text style={styles.orderIdText}>Order #{orderId}</Text>
+        
+        {/* Payment Status Badge */}
+        <View style={[
+          styles.paymentBadge, 
+          paymentStatus === "paid" ? styles.paymentBadgePaid : styles.paymentBadgeUnpaid
+        ]}>
+          <Text style={[
+            styles.paymentBadgeText, 
+            paymentStatus === "paid" ? styles.paymentBadgeTextPaid : styles.paymentBadgeTextUnpaid
+          ]}>
+            {paymentStatus === "paid" 
+              ? `Paid via ${paymentMethod.toUpperCase()} (TXN: ${transactionId})` 
+              : "Cash on Delivery (Unpaid)"}
+          </Text>
+        </View>
 
         {/* Vendor Info Card */}
         <View style={styles.vendorCard}>
@@ -177,7 +195,9 @@ export default function BookingSuccess() {
           <View style={styles.divider} />
 
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total paid</Text>
+            <Text style={styles.totalLabel}>
+              {paymentStatus === "paid" ? "Total paid" : "Total to pay (COD)"}
+            </Text>
             <Text style={styles.totalValue}>₹{totalPrice.toLocaleString("en-IN")}</Text>
           </View>
         </View>
@@ -185,14 +205,24 @@ export default function BookingSuccess() {
         {/* SETUP TIMELINE */}
         <Text style={styles.sectionTitle}>SETUP TIMELINE</Text>
         <View style={styles.timelineCard}>
-          {/* Step 1: Payment Confirmed */}
+          {/* Step 1: Payment Status */}
           <View style={styles.timelineRow}>
             <View style={styles.timelineIconActive}>
-              <Ionicons name="checkmark-circle" size={18} color="#166534" />
+              {paymentStatus === "paid" ? (
+                <Ionicons name="checkmark-circle" size={18} color="#166534" />
+              ) : (
+                <Ionicons name="time-outline" size={18} color="#D97706" />
+              )}
             </View>
             <View style={styles.timelineContent}>
-              <Text style={styles.timelineTitleActive}>Payment confirmed</Text>
-              <Text style={styles.timelineSubtitle}>Abhi • Just now</Text>
+              <Text style={paymentStatus === "paid" ? styles.timelineTitleActive : styles.timelineTitlePending}>
+                {paymentStatus === "paid" ? "Payment confirmed" : "COD Selected (Unpaid)"}
+              </Text>
+              <Text style={styles.timelineSubtitle}>
+                {paymentStatus === "paid" 
+                  ? "Aapki online payment verify ho chuki hai" 
+                  : `Kripya ₹${totalPrice.toLocaleString("en-IN")} service ke time pay karein`}
+              </Text>
             </View>
           </View>
 
@@ -201,11 +231,11 @@ export default function BookingSuccess() {
           {/* Step 2: Vendor Setup */}
           <View style={styles.timelineRow}>
             <View style={styles.timelineIconPending}>
-              <Ionicons name="time-outline" size={18} color="#D97706" />
+              <Ionicons name="calendar-outline" size={18} color="#D97706" />
             </View>
             <View style={styles.timelineContent}>
               <Text style={styles.timelineTitlePending}>Vendor 1 din pehle setup karega</Text>
-              <Text style={styles.timelineSubtitle}>Coming soon</Text>
+              <Text style={styles.timelineSubtitle}>Setup complete ho jayega</Text>
             </View>
           </View>
 
@@ -502,5 +532,34 @@ const styles = StyleSheet.create({
     color: "#475569",
     fontSize: 14,
     fontWeight: "800",
+  },
+  paymentBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginTop: 4,
+    marginBottom: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  paymentBadgePaid: {
+    backgroundColor: "#DCFCE7",
+    borderWidth: 0.5,
+    borderColor: "#86EFAC",
+  },
+  paymentBadgeUnpaid: {
+    backgroundColor: "#FEF3C7",
+    borderWidth: 0.5,
+    borderColor: "#FCD34D",
+  },
+  paymentBadgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  paymentBadgeTextPaid: {
+    color: "#166534",
+  },
+  paymentBadgeTextUnpaid: {
+    color: "#92400E",
   },
 });

@@ -12,9 +12,9 @@ import {
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { createBookingApi, createPaymentApi } from "../api/services";
+import { createBookingApi } from "../api/services";
 
-export default function BookingConfirmScreen() {
+export default function CreateBookingScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
@@ -33,6 +33,10 @@ export default function BookingConfirmScreen() {
   const selectedPackage = params.selectedPackage ? JSON.parse(params.selectedPackage) : null;
   const selectedAddons = params.selectedAddons ? JSON.parse(params.selectedAddons) : [];
   const formValues = params.formValues ? JSON.parse(params.formValues) : {};
+  const selections = params.selections ? JSON.parse(params.selections) : {};
+
+  const packagePrice = selectedPackage?.price ? parseFloat(selectedPackage.price) : 0;
+  const addonsPrice = selectedAddons.reduce((sum, addon) => sum + (addon.price ? parseFloat(addon.price) : 0), 0);
 
   // Extract eventDate and venue dynamically from formValues
   const eventDateKey = Object.keys(formValues).find(key => key.toLowerCase().includes("date"));
@@ -67,16 +71,25 @@ export default function BookingConfirmScreen() {
     try {
       setLoading(true);
 
+      // Combine selections and formValues into bookingData object.
+      // Convert numeric fields (like guest numbers) to actual Numbers if possible.
+      const combinedBookingData = {};
+      Object.keys(selections).forEach(key => {
+        const val = selections[key];
+        combinedBookingData[key] = (val && !isNaN(val)) ? Number(val) : val;
+      });
+      Object.keys(formValues).forEach(key => {
+        combinedBookingData[key] = formValues[key];
+      });
+
       // 1. Post Booking Data
       const bookingPayload = {
         serviceId,
         packageId: selectedPackage?.id || selectedPackage?._id || "",
         vendorId,
         addons: addonsList,
-        eventType,
-        eventDate: eventDate ? parseDate(eventDate).toISOString() : "",
-        guestCount,
-        venue,
+        bookingData: combinedBookingData,
+        totalAmount: totalPrice,
       };
 
       const bookingResult = await createBookingApi(bookingPayload);
@@ -86,19 +99,8 @@ export default function BookingConfirmScreen() {
         throw new Error("Failed to retrieve Booking ID from success response");
       }
 
-      // 2. Post Payment Data
-      const transactionId = "TXN" + Math.floor(100000000 + Math.random() * 900000000);
-      const paymentPayload = {
-        bookingId,
-        amount: totalPrice.toString(),
-        paymentMethod,
-        transactionId,
-      };
-
-      await createPaymentApi(paymentPayload);
-
       router.replace({
-        pathname: "/booking-success",
+        pathname: "/payment",
         params: {
           bookingId,
           orderId: bookingResult?.orderId || `TN-TT-${bookingId.slice(-4).toUpperCase()}`,
@@ -178,84 +180,28 @@ export default function BookingConfirmScreen() {
             <Text style={styles.summaryValue} numberOfLines={1}>{venue}</Text>
           </View>
 
+        </View>
+
+        {/* BILL DETAILS */}
+        <Text style={styles.sectionTitle}>BILL DETAILS</Text>
+        <View style={styles.summaryCard}>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Package Price</Text>
+            <Text style={styles.summaryValue}>₹{packagePrice.toLocaleString("en-IN")}</Text>
+          </View>
+
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Add-ons Price</Text>
+            <Text style={styles.summaryValue}>₹{addonsPrice.toLocaleString("en-IN")}</Text>
+          </View>
+
           <View style={styles.divider} />
 
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total</Text>
+            <Text style={styles.totalLabel}>Grand Total</Text>
             <Text style={styles.totalValue}>₹{totalPrice.toLocaleString("en-IN")}</Text>
           </View>
         </View>
-
-        {/* PAYMENT METHOD */}
-        <Text style={styles.sectionTitle}>PAYMENT METHOD</Text>
-
-        {/* Option 1: UPI */}
-        <TouchableOpacity
-          style={[
-            styles.paymentCard,
-            paymentMethod === "upi" && styles.paymentCardActive,
-            { opacity: 0.5 }
-          ]}
-          onPress={() => Alert.alert("Payment Method", "Currently, only Cash on Delivery is available.")}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.radioOuter, paymentMethod === "upi" && styles.radioOuterActive]}>
-            {paymentMethod === "upi" && <View style={styles.radioInner} />}
-          </View>
-          <View style={styles.paymentIconWrapper}>
-            <MaterialCommunityIcons name="cellphone" size={24} color="#7C3AED" />
-          </View>
-          <View style={styles.paymentDetails}>
-            <Text style={styles.paymentTitle}>UPI / PhonePe</Text>
-            <Text style={styles.paymentSubtitle}>Instant payment</Text>
-          </View>
-          <View style={styles.recommendedBadge}>
-            <Text style={styles.recommendedText}>Recommended</Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* Option 2: Cash on Delivery */}
-        <TouchableOpacity
-          style={[
-            styles.paymentCard,
-            paymentMethod === "cash" && styles.paymentCardActive,
-          ]}
-          onPress={() => setPaymentMethod("cash")}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.radioOuter, paymentMethod === "cash" && styles.radioOuterActive]}>
-            {paymentMethod === "cash" && <View style={styles.radioInner} />}
-          </View>
-          <View style={styles.paymentIconWrapper}>
-            <FontAwesome5 name="money-bill-wave" size={20} color="#10B981" />
-          </View>
-          <View style={styles.paymentDetails}>
-            <Text style={styles.paymentTitle}>Cash on delivery</Text>
-            <Text style={styles.paymentSubtitle}>Delivery pe pay karo</Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* Option 3: Card / Net Banking */}
-        <TouchableOpacity
-          style={[
-            styles.paymentCard,
-            paymentMethod === "card" && styles.paymentCardActive,
-            { opacity: 0.5 }
-          ]}
-          onPress={() => Alert.alert("Payment Method", "Currently, only Cash on Delivery is available.")}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.radioOuter, paymentMethod === "card" && styles.radioOuterActive]}>
-            {paymentMethod === "card" && <View style={styles.radioInner} />}
-          </View>
-          <View style={styles.paymentIconWrapper}>
-            <Ionicons name="card-outline" size={22} color="#3B82F6" />
-          </View>
-          <View style={styles.paymentDetails}>
-            <Text style={styles.paymentTitle}>Card / Net Banking</Text>
-            <Text style={styles.paymentSubtitle}>Debit/Credit card</Text>
-          </View>
-        </TouchableOpacity>
       </ScrollView>
 
       {/* BOTTOM FIXED CONFIRM BAR */}
@@ -270,7 +216,7 @@ export default function BookingConfirmScreen() {
             <ActivityIndicator size="small" color="#FFF" />
           ) : (
             <Text style={styles.confirmButtonText}>
-              ✓ Pay ₹{totalPrice.toLocaleString("en-IN")} — Confirm
+              Proceed to Payment
             </Text>
           )}
         </TouchableOpacity>

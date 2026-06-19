@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getServicesApi, applyVendorApi } from "../api/services";
+import stateDisData from "../constants/state-and-dis.json";
 
 export default function CreateVenderForm() {
   const router = useRouter();
@@ -26,7 +27,8 @@ export default function CreateVenderForm() {
   const [businessName, setBusinessName] = useState("");
   const [description, setDescription] = useState("");
   const [address, setAddress] = useState("");
-  const [city, setCity] = useState("");
+  const [city, setCity] = useState(""); // Holds the selected District
+  const [stateName, setStateName] = useState("");
   const [selectedService, setSelectedService] = useState(null);
   
   const [servicesList, setServicesList] = useState([]);
@@ -35,6 +37,8 @@ export default function CreateVenderForm() {
   const [focusedInput, setFocusedInput] = useState(null);
   const [formErrors, setFormErrors] = useState({});
   const [modalVisible, setModalVisible] = useState(false);
+  const [stateModalVisible, setStateModalVisible] = useState(false);
+  const [districtModalVisible, setDistrictModalVisible] = useState(false);
 
   useEffect(() => {
     const fetchServices = async () => {
@@ -62,8 +66,11 @@ export default function CreateVenderForm() {
     if (!address.trim()) {
       errors.address = "Address is required";
     }
+    if (!stateName) {
+      errors.stateName = "Please select a state";
+    }
     if (!city.trim()) {
-      errors.city = "City is required";
+      errors.city = "Please select a district";
     }
     if (!selectedService) {
       errors.service = "Please select a service";
@@ -106,12 +113,15 @@ export default function CreateVenderForm() {
     }
   };
 
+  const selectedStateObj = stateDisData.states.find(s => s.state === stateName);
+  const districtsList = selectedStateObj ? selectedStateObj.districts : [];
+
   return (
-    <View style={{ flex: 1, backgroundColor: "#F9F9F8", paddingTop: insets.top }}>
-      <StatusBar barStyle="light-content" backgroundColor="#9A3412" />
+    <View style={{ flex: 1, backgroundColor: "#F9F9F8" }}>
+      <StatusBar barStyle="light-content" backgroundColor="#9A3412" translucent={true} />
 
       {/* HEADER */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12, paddingBottom: 12 }]}>
         <TouchableOpacity
           style={styles.headerBackBtn}
           onPress={() => router.back()}
@@ -211,35 +221,52 @@ export default function CreateVenderForm() {
               }}
               onFocus={() => setFocusedInput("address")}
               onBlur={() => setFocusedInput(null)}
-              placeholder="Street or Mall Road"
+              placeholder="Street address"
               placeholderTextColor="#9E9E9E"
             />
             {formErrors.address && <Text style={styles.errorText}>{formErrors.address}</Text>}
           </View>
 
-          {/* City */}
+          {/* State Selector */}
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>
-              City <Text style={{ color: "#EF4444" }}>*</Text>
+              State <Text style={{ color: "#EF4444" }}>*</Text>
             </Text>
-            <TextInput
+            <TouchableOpacity
               style={[
-                styles.textInput,
-                focusedInput === "city" && styles.textInputFocused,
-                formErrors.city && styles.textInputError,
+                styles.dropdownSelector,
+                formErrors.stateName && styles.textInputError
               ]}
-              value={city}
-              onChangeText={(text) => {
-                setCity(text);
-                if (formErrors.city) {
-                  setFormErrors((prev) => ({ ...prev, city: null }));
-                }
-              }}
-              onFocus={() => setFocusedInput("city")}
-              onBlur={() => setFocusedInput(null)}
-              placeholder="e.g. Jaipur"
-              placeholderTextColor="#9E9E9E"
-            />
+              activeOpacity={0.7}
+              onPress={() => setStateModalVisible(true)}
+            >
+              <Text style={stateName ? styles.dropdownText : styles.dropdownPlaceholder}>
+                {stateName || "Select State"}
+              </Text>
+              <Ionicons name="chevron-down" size={18} color="#64748B" />
+            </TouchableOpacity>
+            {formErrors.stateName && <Text style={styles.errorText}>{formErrors.stateName}</Text>}
+          </View>
+
+          {/* District Selector */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>
+              District <Text style={{ color: "#EF4444" }}>*</Text>
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.dropdownSelector,
+                !stateName && styles.disabledDropdown,
+                formErrors.city && styles.textInputError
+              ]}
+              activeOpacity={stateName ? 0.7 : 1}
+              onPress={() => stateName && setDistrictModalVisible(true)}
+            >
+              <Text style={city ? styles.dropdownText : styles.dropdownPlaceholder}>
+                {city || (stateName ? "Select District" : "Select State First")}
+              </Text>
+              <Ionicons name="chevron-down" size={18} color="#64748B" />
+            </TouchableOpacity>
             {formErrors.city && <Text style={styles.errorText}>{formErrors.city}</Text>}
           </View>
 
@@ -332,6 +359,105 @@ export default function CreateVenderForm() {
               ListEmptyComponent={
                 <Text style={styles.emptyServicesText}>No services available</Text>
               }
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* STATE MODAL LIST */}
+      <Modal
+        visible={stateModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setStateModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select State</Text>
+              <TouchableOpacity onPress={() => setStateModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#0F172A" />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={stateDisData.states}
+              keyExtractor={(item) => item.state}
+              ItemSeparatorComponent={() => <View style={styles.modalSeparator} />}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.modalItem,
+                    stateName === item.state && styles.modalItemSelected
+                  ]}
+                  onPress={() => {
+                    setStateName(item.state);
+                    setCity(""); // reset district on state change
+                    setStateModalVisible(false);
+                    if (formErrors.stateName) {
+                      setFormErrors(prev => ({ ...prev, stateName: null }));
+                    }
+                  }}
+                >
+                  <Text style={[
+                    styles.modalItemText,
+                    stateName === item.state && styles.modalItemTextSelected
+                  ]}>
+                    {item.state}
+                  </Text>
+                  {stateName === item.state && (
+                    <Ionicons name="checkmark" size={20} color="#9A3412" />
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* DISTRICT MODAL LIST */}
+      <Modal
+        visible={districtModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setDistrictModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select District</Text>
+              <TouchableOpacity onPress={() => setDistrictModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#0F172A" />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={districtsList}
+              keyExtractor={(item) => item}
+              ItemSeparatorComponent={() => <View style={styles.modalSeparator} />}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.modalItem,
+                    city === item && styles.modalItemSelected
+                  ]}
+                  onPress={() => {
+                    setCity(item);
+                    setDistrictModalVisible(false);
+                    if (formErrors.city) {
+                      setFormErrors(prev => ({ ...prev, city: null }));
+                    }
+                  }}
+                >
+                  <Text style={[
+                    styles.modalItemText,
+                    city === item && styles.modalItemTextSelected
+                  ]}>
+                    {item}
+                  </Text>
+                  {city === item && (
+                    <Ionicons name="checkmark" size={20} color="#9A3412" />
+                  )}
+                </TouchableOpacity>
+              )}
             />
           </View>
         </View>
@@ -442,6 +568,10 @@ const styles = StyleSheet.create({
   dropdownPlaceholder: {
     fontSize: 14,
     color: "#9E9E9E",
+  },
+  disabledDropdown: {
+    backgroundColor: "#F3F4F6",
+    borderColor: "#E2E2E2",
   },
   submitButton: {
     height: 48,

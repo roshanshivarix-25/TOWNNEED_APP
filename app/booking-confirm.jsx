@@ -1,5 +1,5 @@
-import BookingConfirmScreen from "../src/Screens/BookingConfirmScreen";
+import CreateBookingScreen from "../src/Screens/CreateBookingScreen";
 
 export default function BookingConfirm() {
-  return <BookingConfirmScreen />;
+  return <CreateBookingScreen />;
 }

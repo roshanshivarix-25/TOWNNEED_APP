@@ -23,6 +23,7 @@ export default function SearchScreen() {
   const [services, setServices] = useState([]);
   const [filteredServices, setFilteredServices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isFocused, setIsFocused] = useState(false);
 
   // Fetch all services initially
   useEffect(() => {
@@ -120,14 +121,24 @@ export default function SearchScreen() {
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
       {/* Search Bar Container */}
       <View style={styles.searchHeader}>
-        <View style={styles.inputWrapper}>
-          <Ionicons name="search" size={20} color="#94A3B8" style={styles.searchIcon} />
+        <View style={[
+          styles.inputWrapper,
+          isFocused && styles.inputWrapperFocused
+        ]}>
+          <Ionicons 
+            name="search" 
+            size={20} 
+            color={isFocused ? "#9A3412" : "#94A3B8"} 
+            style={styles.searchIcon} 
+          />
           <TextInput
             placeholder="Search for services (e.g. Tent, Pani)..."
             placeholderTextColor="#94A3B8"
             style={styles.input}
             value={searchQuery}
             onChangeText={setSearchQuery}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
             autoFocus
           />
           {searchQuery ? (
@@ -213,6 +224,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     height: 48,
     paddingHorizontal: 12,
+  },
+  inputWrapperFocused: {
+    borderColor: "#9A3412",
   },
   searchIcon: {
     marginRight: 8,

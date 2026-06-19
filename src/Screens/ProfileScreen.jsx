@@ -14,6 +14,7 @@ import { useRouter, useNavigation } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getMeApi, logoutApi } from "../api/auth";
 import BottomTab from "../Components/BottomTab";
+import { getServicesApi, getUserBookingsApi } from "../api/services";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -25,6 +26,21 @@ export default function ProfileScreen() {
     location: "Location",
     email: "Email Address",
   });
+  const [bookingCount, setBookingCount] = useState(0);
+  const [servicesCount, setServicesCount] = useState(0);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const [bookings, services] = await Promise.all([
+        getUserBookingsApi().catch(() => []),
+        getServicesApi().catch(() => []),
+      ]);
+      setBookingCount(bookings ? bookings.length : 0);
+      setServicesCount(services ? services.length : 0);
+    } catch (err) {
+      console.log("Failed to fetch profile stats:", err);
+    }
+  }, []);
 
   const fetchUserDetails = useCallback(async () => {
     try {
@@ -53,13 +69,27 @@ export default function ProfileScreen() {
     }
   }, []);
 
+  const getLocationDisplay = () => {
+    if (!user.location) return "Location";
+    if (typeof user.location === "object") {
+      const parts = [];
+     // if (user.location.address) parts.push(user.location.address);
+      if (user.location.city) parts.push(user.location.city);
+      if (user.location.state) parts.push(user.location.state);
+      return parts.join(", ") || "Location";
+    }
+    return user.location;
+  };
+
   useEffect(() => {
     fetchUserDetails();
+    fetchStats();
     const unsubscribe = navigation.addListener("focus", () => {
       fetchUserDetails();
+      fetchStats();
     });
     return unsubscribe;
-  }, [navigation, fetchUserDetails]);
+  }, [navigation, fetchUserDetails, fetchStats]);
 
   const handleLogout = async () => {
     try {
@@ -118,7 +148,7 @@ export default function ProfileScreen() {
           <Text style={styles.userName}>{user.name}</Text>
           <View style={styles.locationContainer}>
             <Ionicons name="location-outline" size={15} color="#9A3412" style={{ marginRight: 4 }} />
-            <Text style={styles.userLocation}>{user.location}</Text>
+            <Text style={styles.userLocation}>{getLocationDisplay()}</Text>
           </View>
           <TouchableOpacity
             style={styles.editProfileBtn}
@@ -133,11 +163,11 @@ export default function ProfileScreen() {
         {/* Stats Row */}
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
-            <Text style={styles.statNumber}>8</Text>
+            <Text style={styles.statNumber}>{bookingCount}</Text>
             <Text style={styles.statLabel}>Bookings</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statNumber}>4</Text>
+            <Text style={styles.statNumber}>{servicesCount}</Text>
             <Text style={styles.statLabel}>Services</Text>
           </View>
           <View style={styles.statCard}>

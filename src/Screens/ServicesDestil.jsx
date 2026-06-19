@@ -28,8 +28,7 @@ export default function ServicesDestil() {
   const [loading, setLoading] = useState(true);
 
   // User selections
-  const [selectedEventType, setSelectedEventType] = useState(null);
-  const [selectedGuestOption, setSelectedGuestOption] = useState(null);
+  const [selections, setSelections] = useState({});
   const [formValues, setFormValues] = useState({});
   const [imageError, setImageError] = useState(false);
 
@@ -50,6 +49,15 @@ export default function ServicesDestil() {
     setShowDatePicker(false);
   };
 
+  const getOptionsList = (value) => {
+    let list = [];
+    if (Array.isArray(value)) list = value;
+    else if (typeof value === "string") {
+      list = value.split(",").map(item => item.trim()).filter(Boolean);
+    }
+    return [...new Set(list)];
+  };
+
   useEffect(() => {
     const fetchDetails = async () => {
       try {
@@ -59,19 +67,18 @@ export default function ServicesDestil() {
           setService(data);
           
           // Set initial defaults dynamically
+          const initialSelections = {};
           const serviceDataKeys = Object.keys(data?.serviceData || {}).filter(
-            key => Array.isArray(data.serviceData[key]) && key !== "fields"
+            key => key !== "fields"
           );
           
-          const firstKey = serviceDataKeys[0];
-          const secondKey = serviceDataKeys[1];
-
-          if (firstKey && data.serviceData[firstKey]?.length > 0) {
-            setSelectedEventType(data.serviceData[firstKey][0]);
-          }
-          if (secondKey && data.serviceData[secondKey]?.length > 0) {
-            setSelectedGuestOption(data.serviceData[secondKey][0]);
-          }
+          serviceDataKeys.forEach(key => {
+            const options = getOptionsList(data.serviceData[key]);
+            if (options.length > 0) {
+              initialSelections[key] = options[0];
+            }
+          });
+          setSelections(initialSelections);
           
           // Initialize form fields
           const initialForm = {};
@@ -117,6 +124,16 @@ export default function ServicesDestil() {
   };
 
   const handleProceed = () => {
+    const serviceDataKeys = Object.keys(service?.serviceData || {}).filter(
+      key => key !== "fields"
+    );
+    for (const key of serviceDataKeys) {
+      if (!selections[key]) {
+        Alert.alert("Error", `Please select ${key}`);
+        return;
+      }
+    }
+
     // Validate fields
     let missingField = null;
     const fields = (service?.serviceData?.fields || [
@@ -134,12 +151,17 @@ export default function ServicesDestil() {
       return;
     }
 
+    // Map dynamic fields to packages screen params
+    const eventTypeKey = serviceDataKeys.find(k => k.toLowerCase().includes("type") || k.toLowerCase().includes("event")) || serviceDataKeys[0];
+    const guestKey = serviceDataKeys.find(k => k.toLowerCase().includes("guest") || k.toLowerCase().includes("qty") || k.toLowerCase().includes("quantity")) || serviceDataKeys[1];
+
     router.push({
       pathname: "/packages",
       params: {
         serviceId: id,
-        eventType: selectedEventType || "",
-        guestCount: selectedGuestOption || "",
+        eventType: selections[eventTypeKey] || "",
+        guestCount: selections[guestKey] || "",
+        selections: JSON.stringify(selections),
         formValues: JSON.stringify(formValues),
       },
     });
@@ -162,10 +184,8 @@ export default function ServicesDestil() {
   }
 
   const serviceDataKeys = Object.keys(service?.serviceData || {}).filter(
-    key => Array.isArray(service.serviceData[key]) && key !== "fields"
+    key => key !== "fields"
   );
-  const firstKey = serviceDataKeys[0];
-  const secondKey = serviceDataKeys[1];
 
   const fields = (service?.serviceData?.fields || [
     { name: "eventDate", label: "Event Date", type: "date" },
@@ -223,60 +243,45 @@ export default function ServicesDestil() {
               })()}
             </View>
             <Text style={styles.heroTitle}>
-              {firstKey && service.serviceData[firstKey] ? service.serviceData[firstKey].slice(0, 3).join(" · ") : service.title}
+              {service.title}
             </Text>
             <Text style={styles.heroSubtitle}>
               {service.description || "Setup + breakdown included"}
             </Text>
           </View>
 
-          {/* FIRST DYNAMIC OPTION SECTION */}
-          {firstKey && service.serviceData[firstKey] && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{firstKey.toUpperCase()}</Text>
-              <View style={styles.tagGrid}>
-                {service.serviceData[firstKey].map((type) => {
-                  const isSelected = selectedEventType === type;
-                  return (
-                    <TouchableOpacity
-                      key={type}
-                      style={[styles.tagPill, isSelected && styles.tagPillActive]}
-                      onPress={() => setSelectedEventType(type)}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={[styles.tagText, isSelected && styles.tagTextActive]}>
-                        {type}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+          {/* DYNAMIC OPTION SECTIONS */}
+          {serviceDataKeys.map((key) => {
+            const options = getOptionsList(service.serviceData[key]);
+            if (options.length === 0) return null;
+            return (
+              <View key={key} style={styles.section}>
+                <Text style={styles.sectionTitle}>{key.toUpperCase()}</Text>
+                <View style={styles.tagGrid}>
+                  {options.map((opt, idx) => {
+                    const isSelected = selections[key] === opt;
+                    return (
+                      <TouchableOpacity
+                        key={`${opt}-${idx}`}
+                        style={[styles.tagPill, isSelected && styles.tagPillActive]}
+                        onPress={() => {
+                          setSelections(prev => ({
+                            ...prev,
+                            [key]: opt
+                          }));
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[styles.tagText, isSelected && styles.tagTextActive]}>
+                          {opt}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
-            </View>
-          )}
-
-          {/* SECOND DYNAMIC OPTION SECTION */}
-          {secondKey && service.serviceData[secondKey] && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{secondKey.toUpperCase()}</Text>
-              <View style={styles.guestGrid}>
-                {service.serviceData[secondKey].map((opt) => {
-                  const isSelected = selectedGuestOption === opt;
-                  return (
-                    <TouchableOpacity
-                      key={opt.toString()}
-                      style={[styles.guestPill, isSelected && styles.guestPillActive]}
-                      onPress={() => setSelectedGuestOption(opt)}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={[styles.guestText, isSelected && styles.guestTextActive]}>
-                        {opt}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-          )}
+            );
+          })/* end map */}
 
           {/* DYNAMIC FIELDS SECTION */}
           {fields && fields.length > 0 && (
