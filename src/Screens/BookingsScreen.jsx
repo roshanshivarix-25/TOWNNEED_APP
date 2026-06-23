@@ -8,6 +8,8 @@ import {
   Alert,
   StatusBar,
   ActivityIndicator,
+  Modal,
+  Platform,
 } from "react-native";
 import BottomTab from "../Components/BottomTab";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -22,6 +24,12 @@ export default function BookingsScreen() {
 
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sortBy, setSortBy] = useState("newest"); // newest, oldest, amount_desc, amount_asc
+  const [statusFilter, setStatusFilter] = useState("all"); // all, pending, confirmed, completed, cancelled
+
+  const [modalVisible, setModalVisible] = useState(false);
+  const [tempSortBy, setTempSortBy] = useState("newest");
+  const [tempStatusFilter, setTempStatusFilter] = useState("all");
 
   const fetchBookings = async () => {
     try {
@@ -98,15 +106,62 @@ export default function BookingsScreen() {
     });
   };
 
+  const getFilteredAndSorted = (list) => {
+    let result = [...list];
+
+    // 1. Filter by Status
+    if (statusFilter !== "all") {
+      result = result.filter((b) => {
+        const status = (b.status || "").toLowerCase();
+        if (statusFilter === "pending") return status === "pending";
+        if (statusFilter === "confirmed") return status === "accepted" || status === "confirmed" || status === "on the way";
+        if (statusFilter === "completed") return status === "completed" || status === "done";
+        if (statusFilter === "cancelled") return status === "cancelled";
+        return true;
+      });
+    }
+
+
+
+    // 3. Sort By
+    result.sort((a, b) => {
+      if (sortBy === "newest") {
+        const dateA = a.createdAt ? new Date(a.createdAt) : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt) : 0;
+        return dateB - dateA;
+      }
+      if (sortBy === "oldest") {
+        const dateA = a.createdAt ? new Date(a.createdAt) : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt) : 0;
+        return dateA - dateB;
+      }
+      if (sortBy === "amount_desc") {
+        const amtA = a.totalAmount || 0;
+        const amtB = b.totalAmount || 0;
+        return amtB - amtA;
+      }
+      if (sortBy === "amount_asc") {
+        const amtA = a.totalAmount || 0;
+        const amtB = b.totalAmount || 0;
+        return amtA - amtB;
+      }
+      return 0;
+    });
+
+    return result;
+  };
+
   // Filter bookings
-  const activeBookings = bookings.filter(
+  const filteredList = getFilteredAndSorted(bookings);
+
+  const activeBookings = filteredList.filter(
     (b) =>
       b.status?.toLowerCase() !== "completed" &&
       b.status?.toLowerCase() !== "done" &&
       b.status?.toLowerCase() !== "cancelled"
   );
 
-  const pastBookings = bookings.filter(
+  const pastBookings = filteredList.filter(
     (b) =>
       b.status?.toLowerCase() === "completed" ||
       b.status?.toLowerCase() === "done" ||
@@ -116,12 +171,122 @@ export default function BookingsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#F9F9F8", paddingTop: insets.top }}>
       <StatusBar barStyle="dark-content" backgroundColor="#F9F9F8" />
+      
       {/* FIXED HEADER */}
       <View style={styles.sectionHeader}>
         <View style={styles.titleContainer}>
           <Text style={styles.sectionTitle}>Meri Bookings</Text>
         </View>
+        <TouchableOpacity 
+          style={styles.headerFilterBtn} 
+          onPress={() => {
+            setTempSortBy(sortBy);
+            setTempStatusFilter(statusFilter);
+            setModalVisible(true);
+          }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="funnel" size={20} color="#9A3412" />
+        </TouchableOpacity>
       </View>
+
+      {/* FILTERS MODAL */}
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Filters</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                <TouchableOpacity 
+                  style={styles.clearFilterBtn} 
+                  onPress={() => {
+                    setTempSortBy("newest");
+                    setTempStatusFilter("all");
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="reload" size={12} color="#A2441D" />
+                  <Text style={styles.clearFilterText}>Clear Filter</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setModalVisible(false)}>
+                  <Ionicons name="close" size={24} color="#0F172A" style={{ marginLeft: 4 }} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+              {/* Order Status Section */}
+              <Text style={styles.filterSectionTitle}>Order Status</Text>
+              <View style={styles.filterList}>
+                {[
+                  { id: "all", label: "All Status" },
+                  { id: "confirmed", label: "Confirmed" },
+                  { id: "pending", label: "Pending" },
+                  { id: "cancelled", label: "Cancelled" },
+                ].map((item) => {
+                  const isSelected = tempStatusFilter === item.id;
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[styles.filterListItem, isSelected && styles.filterListItemActive]}
+                      onPress={() => setTempStatusFilter(item.id)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.filterListItemText, isSelected && styles.filterListItemTextActive]}>
+                        {item.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Sort By Section */}
+              <Text style={styles.filterSectionTitle}>Sort By</Text>
+              <View style={styles.filterList}>
+                {[
+                  { id: "newest", label: "Newest First" },
+                  { id: "oldest", label: "Oldest First" },
+                  { id: "amount_desc", label: "Price: High to Low" },
+                  { id: "amount_asc", label: "Price: Low to High" },
+                ].map((item) => {
+                  const isSelected = tempSortBy === item.id;
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[styles.filterListItem, isSelected && styles.filterListItemActive]}
+                      onPress={() => setTempSortBy(item.id)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.filterListItemText, isSelected && styles.filterListItemTextActive]}>
+                        {item.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
+
+            {/* Apply Button */}
+            <TouchableOpacity
+              style={styles.applyButton}
+              onPress={() => {
+                setSortBy(tempSortBy);
+                setStatusFilter(tempStatusFilter);
+                setModalVisible(false);
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.applyButtonText}>Apply Filters</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* SCROLLABLE CONTENT */}
       {loading ? (
@@ -137,6 +302,19 @@ export default function BookingsScreen() {
           {/* ACTIVE SECTION */}
           <View style={styles.sectionHeaderLabel}>
             <Text style={styles.sectionTitleLabel}>ACTIVE</Text>
+            {(statusFilter !== "all" || sortBy !== "newest") && (
+              <TouchableOpacity 
+                style={styles.clearFilterBtn} 
+                onPress={() => {
+                  setSortBy("newest");
+                  setStatusFilter("all");
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="reload" size={12} color="#A2441D" />
+                <Text style={styles.clearFilterText}>Clear Filter</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {activeBookings.length === 0 ? (
@@ -299,6 +477,9 @@ const styles = StyleSheet.create({
   },
   sectionHeaderLabel: {
     marginBottom: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   sectionTitleLabel: {
     fontSize: 12,
@@ -398,5 +579,115 @@ const styles = StyleSheet.create({
   priceText: {
     color: "#0F172A",
     fontWeight: "600",
+  },
+  headerFilterBtn: {
+    position: "absolute",
+    right: 16,
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: "#FFEDE8",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#ffd0d0ff",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    zIndex: 2,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#FFF",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: Platform.OS === "ios" ? 40 : 24,
+    maxHeight: "85%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderColor: "#F1F5F9",
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  modalScroll: {
+    marginBottom: 20,
+  },
+  filterSectionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1E293B",
+    marginTop: 12,
+    marginBottom: 12,
+  },
+  filterList: {
+    gap: 8,
+    marginBottom: 16,
+  },
+  filterListItem: {
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1.5,
+    borderColor: "#F1F5F9",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+  },
+  filterListItemActive: {
+    backgroundColor: "#FFEDE8",
+    borderColor: "#9A3412",
+  },
+  filterListItemText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#64748B",
+  },
+  filterListItemTextActive: {
+    color: "#9A3412",
+    fontWeight: "700",
+  },
+  applyButton: {
+    backgroundColor: "#9A3412",
+    height: 52,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  applyButtonText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  clearFilterBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderWidth: 0.8,
+    borderColor: "#FFDAD0",
+    backgroundColor: "#FFEDE8",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  clearFilterText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#A2441D",
   },
 });

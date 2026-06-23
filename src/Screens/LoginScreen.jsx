@@ -7,6 +7,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Image,
 } from "react-native";
 import { sendOtpApi } from "../api/auth";
 
@@ -55,6 +56,11 @@ export default function LoginScreen() {
       <View style={styles.content}>
         {/* Brand Header */}
         <View style={styles.logoWrapper}>
+          <Image
+            source={require("../../assets/AppLogo/TownNeed.png")}
+            style={{ width: 120, height: 120, marginBottom: 10 }}
+            resizeMode="contain"
+          />
           <Text style={styles.brandTitle}>TOWNNEED</Text>
           <Text style={styles.brandSubtitle}>Your Local Service Expert</Text>
         </View>

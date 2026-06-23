@@ -110,7 +110,7 @@ export default function ProfileScreen() {
 
   const menuItems = [
     { id: "addresses", title: "Saved addresses", icon: "location-outline", emoji: "📍" },
-    { id: "payments", title: "Payment methods", icon: "card-outline", emoji: "💳" },
+    { id: "payments", title: "Payment history", icon: "receipt-outline", emoji: "🛍️" },
     { id: "notifications", title: "Notifications", icon: "notifications-outline", emoji: "🔔" },
     { id: "vendor", title: "Vendor bano", icon: "briefcase-outline", emoji: "🤝" },
   ];
@@ -189,6 +189,8 @@ export default function ProfileScreen() {
                 onPress={() => {
                   if (item.id === 'vendor') {
                     router.navigate('/create-vendor');
+                  } else if (item.id === 'payments') {
+                    router.navigate('/payment-history');
                   } else {
                     Alert.alert(item.title, `Opening ${item.title}...`);
                   }

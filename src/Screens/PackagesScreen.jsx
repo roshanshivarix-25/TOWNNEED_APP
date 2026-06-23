@@ -125,6 +125,24 @@ export default function PackagesScreen() {
         ) : (
           packages.map((pkg) => {
             const isSelected = selectedPackage?.id === pkg.id;
+            
+            // Process features to ensure each is in its own tag
+            let featuresList = [];
+            if (pkg.features) {
+              if (Array.isArray(pkg.features)) {
+                pkg.features.forEach((feat) => {
+                  if (typeof feat === "string") {
+                    const splitFeats = feat.split(",").map(f => f.trim()).filter(Boolean);
+                    featuresList.push(...splitFeats);
+                  } else if (feat) {
+                    featuresList.push(feat);
+                  }
+                });
+              } else if (typeof pkg.features === "string") {
+                featuresList = pkg.features.split(",").map(f => f.trim()).filter(Boolean);
+              }
+            }
+
             return (
               <TouchableOpacity
                 key={pkg.id}
@@ -137,13 +155,20 @@ export default function PackagesScreen() {
               >
                 {/* Title & Price Header Row */}
                 <View style={styles.cardHeader}>
-                  <View style={styles.titleContainer}>
-                    <Text style={styles.packageTitle}>{pkg.title}</Text>
-                    {pkg.isPopular && (
-                      <View style={styles.popularBadge}>
-                        <Text style={styles.popularBadgeText}>Popular</Text>
+                  <View style={[styles.titleContainer, { flexDirection: "row", flexWrap: "nowrap", alignItems: "flex-start" }]}>
+                    <View style={[styles.selectDot, isSelected && styles.selectDotSelected, { marginTop: 2 }]}>
+                      {isSelected && <View style={styles.selectDotInner} />}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                        <Text style={styles.packageTitle}>{pkg.title}</Text>
+                        {pkg.isPopular && (
+                          <View style={[styles.popularBadge, { marginLeft: 0 }]}>
+                            <Text style={styles.popularBadgeText}>Popular</Text>
+                          </View>
+                        )}
                       </View>
-                    )}
+                    </View>
                   </View>
                   <View style={styles.priceBadge}>
                     <Text style={styles.priceBadgeText}>
@@ -156,10 +181,11 @@ export default function PackagesScreen() {
                 <Text style={styles.packageDesc}>{pkg.description}</Text>
 
                 {/* Features Tags */}
-                {pkg.features && pkg.features.length > 0 && (
+                {featuresList.length > 0 && (
                   <View style={styles.featuresContainer}>
-                    {pkg.features.map((feature, idx) => (
+                    {featuresList.map((feature, idx) => (
                       <View key={idx} style={styles.featureTag}>
+                        <Ionicons name="checkmark-circle" size={12} color="#9A3412" style={{ marginRight: 4 }} />
                         <Text style={styles.featureTagText}>{feature}</Text>
                       </View>
                     ))}
@@ -318,24 +344,45 @@ const styles = StyleSheet.create({
     marginTop: 6,
     lineHeight: 18,
   },
-  featuresContainer: {
+   featuresContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
     marginTop: 14,
     gap: 8,
   },
   featureTag: {
-    backgroundColor: "#F8FAFC",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FDF8F6",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 100,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#FFEDE8",
   },
   featureTagText: {
     fontSize: 11,
-    color: "#475569",
+    color: "#9A3412",
     fontWeight: "600",
+  },
+  selectDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: "#CBD5E1",
+    marginRight: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  selectDotSelected: {
+    borderColor: "#9A3412",
+  },
+  selectDotInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#9A3412",
   },
   bottomBar: {
     position: "absolute",

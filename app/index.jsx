@@ -8,6 +8,7 @@ import {
   Text,
   View,
   StatusBar,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -102,7 +103,11 @@ export default function Index() {
           },
         ]}
       >
-        <Ionicons name="cart" size={80} color="#A2441D" />
+        <Image
+          source={require("../assets/AppLogo/TownNeed.png")}
+          style={{ width: 140, height: 140, marginBottom: 12 }}
+          resizeMode="contain"
+        />
         <Text style={styles.logoText}>TOWNNEED</Text>
       </Animated.View>
 

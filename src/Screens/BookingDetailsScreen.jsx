@@ -193,15 +193,37 @@ export default function BookingDetailsScreen() {
             </View>
             <Text style={styles.packageDesc}>{booking.packageId.description}</Text>
 
-            {booking.packageId.features && booking.packageId.features.length > 0 && (
-              <View style={styles.featuresContainer}>
-                {booking.packageId.features.map((feature, idx) => (
-                  <View key={idx} style={styles.featureTag}>
-                    <Text style={styles.featureTagText}>{feature}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
+            {(() => {
+              let featuresList = [];
+              const feats = booking.packageId.features;
+              if (feats) {
+                if (Array.isArray(feats)) {
+                  feats.forEach((feat) => {
+                    if (typeof feat === "string") {
+                      const splitFeats = feat.split(",").map(f => f.trim()).filter(Boolean);
+                      featuresList.push(...splitFeats);
+                    } else if (feat) {
+                      featuresList.push(feat);
+                    }
+                  });
+                } else if (typeof feats === "string") {
+                  featuresList = feats.split(",").map(f => f.trim()).filter(Boolean);
+                }
+              }
+
+              if (featuresList.length === 0) return null;
+
+              return (
+                <View style={styles.featuresContainer}>
+                  {featuresList.map((feature, idx) => (
+                    <View key={idx} style={styles.featureTag}>
+                      <Ionicons name="checkmark-circle" size={12} color="#9A3412" style={{ marginRight: 4 }} />
+                      <Text style={styles.featureTagText}>{feature}</Text>
+                    </View>
+                  ))}
+                </View>
+              );
+            })()}
           </View>
         )}
 
@@ -256,6 +278,69 @@ export default function BookingDetailsScreen() {
           <View style={[styles.card, styles.pendingVendorCard]}>
             <Ionicons name="people-outline" size={24} color="#64748B" />
             <Text style={styles.pendingVendorText}>Assigning local vendor shortly</Text>
+          </View>
+        )}
+
+        {/* PAYMENT TRANSACTIONS CARD */}
+        {booking.payments && booking.payments.length > 0 && (
+          <View style={styles.card}>
+            <Text style={styles.cardHeader}>Payment Details</Text>
+            {(() => {
+              const payment = booking.payments[0];
+              const statusColors = payment.status === "paid" 
+                ? { bg: "#DCFCE7", text: "#166534" } 
+                : { bg: "#FEF3C7", text: "#B45309" };
+              return (
+                <View style={styles.paymentTransactionBlock}>
+                  <View style={styles.paymentHeaderRow}>
+                    <View style={styles.paymentMethodWrapper}>
+                      <Ionicons name="card-outline" size={16} color="#9A3412" />
+                      <Text style={styles.paymentMethodText}>
+                        {payment.paymentMethod?.toUpperCase() || "N/A"}
+                      </Text>
+                    </View>
+                    <View style={[styles.statusBadge, { backgroundColor: statusColors.bg }]}>
+                      <Text style={[styles.statusBadgeText, { color: statusColors.text }]}>
+                        {payment.status || "pending"}
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.paymentDetailGrid}>
+                    <View style={styles.paymentGridItem}>
+                      <Text style={styles.paymentGridLabel}>Amount</Text>
+                      <Text style={styles.paymentGridValue}>₹{payment.amount?.toLocaleString("en-IN")}</Text>
+                    </View>
+                    <View style={styles.paymentGridItem}>
+                      <Text style={styles.paymentGridLabel}>Date</Text>
+                      <Text style={styles.paymentGridValue}>
+                        {payment.createdAt ? new Date(payment.createdAt).toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        }) : "N/A"}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {payment.razorpayPaymentId && (
+                    <View style={styles.paymentSubRow}>
+                      <Text style={styles.paymentSubLabel}>Razorpay Payment ID: </Text>
+                      <Text style={styles.paymentSubValue}>{payment.razorpayPaymentId}</Text>
+                    </View>
+                  )}
+
+                  {payment.razorpayOrderId && (
+                    <View style={styles.paymentSubRow}>
+                      <Text style={styles.paymentSubLabel}>Razorpay Order ID: </Text>
+                      <Text style={styles.paymentSubValue}>{payment.razorpayOrderId}</Text>
+                    </View>
+                  )}
+                </View>
+              );
+            })()}
           </View>
         )}
 
@@ -491,16 +576,18 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   featureTag: {
-    backgroundColor: "#F8FAFC",
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FDF8F6",
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingVertical: 5,
+    borderRadius: 100,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#FFEDE8",
   },
   featureTagText: {
     fontSize: 11,
-    color: "#475569",
+    color: "#9A3412",
     fontWeight: "600",
   },
   addonItemRow: {
@@ -613,5 +700,74 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "800",
     color: "#9A3412",
+  },
+  paymentTransactionBlock: {
+    paddingVertical: 4,
+  },
+  paymentHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  paymentMethodWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  paymentMethodText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "capitalize",
+  },
+  paymentDetailGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+    gap: 16,
+  },
+  paymentGridItem: {
+    flex: 1,
+  },
+  paymentGridLabel: {
+    fontSize: 11,
+    color: "#94A3B8",
+    fontWeight: "600",
+  },
+  paymentGridValue: {
+    fontSize: 13,
+    color: "#0F172A",
+    fontWeight: "700",
+    marginTop: 2,
+  },
+  paymentSubRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+  },
+  paymentSubLabel: {
+    fontSize: 11,
+    color: "#64748B",
+    fontWeight: "600",
+  },
+  paymentSubValue: {
+    fontSize: 11,
+    color: "#475569",
+    fontWeight: "700",
+  },
+  paymentDivider: {
+    height: 1,
+    backgroundColor: "#F1F5F9",
+    marginVertical: 12,
   },
 });

@@ -1,4 +1,7 @@
 import axiosInstance from "../utils/axios";
+import * as FileSystem from "expo-file-system/legacy";
+import { Platform } from "react-native";
+
 
 export const getServicesApi = async () => {
   try {
@@ -89,8 +92,8 @@ export const createBookingApi = async (bookingData) => {
     }
     return response.data.data;
   } catch (error) {
-    console.log("[API] createBookingApi Error:", error.message);
-    throw error;
+    console.log("[API] createBookingApi Error:", error.response?.data || error.message);
+    throw new Error(error.response?.data?.message || error.message);
   }
 };
 
@@ -181,4 +184,79 @@ export const verifyPaymentApi = async (payload) => {
     throw error;
   }
 };
+
+export const getMyPaymentsApi = async () => {
+  try {
+    console.log("[API] Calling getMyPaymentsApi");
+    const response = await axiosInstance.get("/payment/my/");
+    console.log("[API] getMyPaymentsApi Success response:", response.data);
+    if (!response.data.success) {
+      throw new Error(response.data.message || "Failed to fetch payment history");
+    }
+    return response.data.data;
+  } catch (error) {
+    console.log("[API] getMyPaymentsApi Error:", error.message);
+    throw error;
+  }
+};
+
+export const downloadInvoiceApi = async (paymentId) => {
+  try {
+    console.log("[API] Calling downloadInvoiceApi for paymentId:", paymentId);
+    const baseURL = axiosInstance.defaults.baseURL;
+    const cleanBaseUrl = baseURL.endsWith("/") ? baseURL.slice(0, -1) : baseURL;
+    const downloadUrl = `${cleanBaseUrl}/user/invoice/${paymentId}/download`;
+
+    if (Platform.OS === "web") {
+      console.log("[API] Downloading invoice on Web:", downloadUrl);
+      const response = await axiosInstance.get(`/user/invoice/${paymentId}/download`, {
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `invoice_${paymentId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      return true;
+    } else {
+      const fileUri = `${FileSystem.documentDirectory}invoice_${paymentId}.pdf`;
+      console.log("[API] Downloading native PDF using axiosInstance for correct header injection:", downloadUrl);
+      
+      const response = await axiosInstance.get(`/user/invoice/${paymentId}/download`, {
+        responseType: "arraybuffer",
+      });
+
+      console.log("[API] Axios success. Converting buffer to base64...");
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+      const bytes = new Uint8Array(response.data);
+      const len = bytes.length;
+      let base64 = "";
+      for (let i = 0; i < len; i += 3) {
+        const b1 = bytes[i];
+        const b2 = i + 1 < len ? bytes[i + 1] : NaN;
+        const b3 = i + 2 < len ? bytes[i + 2] : NaN;
+        const enc1 = b1 >> 2;
+        const enc2 = ((b1 & 3) << 4) | (isNaN(b2) ? 0 : b2 >> 4);
+        const enc3 = isNaN(b2) ? 64 : ((b2 & 15) << 2) | (isNaN(b3) ? 0 : b3 >> 6);
+        const enc4 = isNaN(b3) ? 64 : b3 & 63;
+        base64 += chars.charAt(enc1) + chars.charAt(enc2) +
+                  (enc3 === 64 ? "=" : chars.charAt(enc3)) +
+                  (enc4 === 64 ? "=" : chars.charAt(enc4));
+      }
+
+      console.log("[API] Writing base64 to fileUri:", fileUri);
+      await FileSystem.writeAsStringAsync(fileUri, base64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      return fileUri;
+    }
+  } catch (error) {
+    console.log("[API] downloadInvoiceApi Error:", error.message);
+    throw error;
+  }
+};
+
 

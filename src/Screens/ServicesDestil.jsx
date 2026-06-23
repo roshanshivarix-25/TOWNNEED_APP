@@ -16,8 +16,23 @@ import {
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getServiceDetailApi } from "../api/services";
 import CustomDatePicker from "../Components/CustomDatePicker";
+
+const getProcessedFields = (rawFields) => {
+  return (rawFields || [
+    { name: "eventDate", label: "Event Date", type: "date" },
+    { name: "venue", label: "Venue/Delivery Address", type: "text" }
+  ])
+  .filter(field => field.name !== "eventDuration" && field.name !== "duration")
+  .map(field => {
+    if (field.type === "date" || field.name.toLowerCase().includes("date")) {
+      return { ...field, label: "Service date" };
+    }
+    return field;
+  });
+};
 
 export default function ServicesDestil() {
   const router = useRouter();
@@ -80,14 +95,39 @@ export default function ServicesDestil() {
           });
           setSelections(initialSelections);
           
+          // Fetch user address if available for prefill
+          let userAddressStr = "";
+          try {
+            const userJson = await AsyncStorage.getItem("user");
+            if (userJson) {
+              const userObj = JSON.parse(userJson);
+              if (userObj && userObj.location) {
+                if (typeof userObj.location === "object") {
+                  const parts = [];
+                  if (userObj.location.address) parts.push(userObj.location.address);
+                  if (userObj.location.city) parts.push(userObj.location.city);
+                  if (userObj.location.state) parts.push(userObj.location.state);
+                  if (userObj.location.pincode) parts.push(userObj.location.pincode);
+                  userAddressStr = parts.join(", ");
+                } else if (typeof userObj.location === "string") {
+                  userAddressStr = userObj.location;
+                }
+              }
+            }
+          } catch (err) {
+            console.log("Error loading user address for prefill:", err);
+          }
+
           // Initialize form fields
           const initialForm = {};
-          const fields = (data?.serviceData?.fields || [
-            { name: "eventDate", label: "Event Date", type: "date" },
-            { name: "venue", label: "Venue/Delivery Address", type: "text" }
-          ]).filter(field => field.name !== "eventDuration" && field.name !== "duration");
+          const fields = getProcessedFields(data?.serviceData?.fields);
           fields.forEach(field => {
-            initialForm[field.name] = "";
+            const fieldName = (field.name || "").toLowerCase();
+            if (fieldName.includes("address") || fieldName.includes("venue") || fieldName.includes("location")) {
+              initialForm[field.name] = userAddressStr;
+            } else {
+              initialForm[field.name] = "";
+            }
           });
           setFormValues(initialForm);
         }
@@ -136,10 +176,7 @@ export default function ServicesDestil() {
 
     // Validate fields
     let missingField = null;
-    const fields = (service?.serviceData?.fields || [
-      { name: "eventDate", label: "Event Date", type: "date" },
-      { name: "venue", label: "Venue/Delivery Address", type: "text" }
-    ]).filter(field => field.name !== "eventDuration" && field.name !== "duration");
+    const fields = getProcessedFields(service?.serviceData?.fields);
     fields.forEach(field => {
       if (!formValues[field.name]?.trim()) {
         missingField = field.label;
@@ -187,10 +224,7 @@ export default function ServicesDestil() {
     key => key !== "fields"
   );
 
-  const fields = (service?.serviceData?.fields || [
-    { name: "eventDate", label: "Event Date", type: "date" },
-    { name: "venue", label: "Venue/Delivery Address", type: "text" }
-  ]).filter(field => field.name !== "eventDuration" && field.name !== "duration");
+  const fields = getProcessedFields(service?.serviceData?.fields);
 
   return (
     <KeyboardAvoidingView

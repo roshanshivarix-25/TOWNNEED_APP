@@ -82,14 +82,22 @@ export default function CreateBookingScreen() {
         combinedBookingData[key] = formValues[key];
       });
 
+      // Format date to YYYY-MM-DD
+      const parsedDateObj = parseDate(eventDate);
+      const y = parsedDateObj.getFullYear();
+      const m = String(parsedDateObj.getMonth() + 1).padStart(2, "0");
+      const d = String(parsedDateObj.getDate()).padStart(2, "0");
+      const formattedBookingDate = `${y}-${m}-${d}`;
+
       // 1. Post Booking Data
       const bookingPayload = {
         serviceId,
         packageId: selectedPackage?.id || selectedPackage?._id || "",
         vendorId,
+        bookingDate: formattedBookingDate,
+        bookingAddress: venue || "",
         addons: addonsList,
         bookingData: combinedBookingData,
-        totalAmount: totalPrice,
       };
 
       const bookingResult = await createBookingApi(bookingPayload);
