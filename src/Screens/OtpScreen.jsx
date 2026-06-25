@@ -81,7 +81,17 @@ export default function OtpScreen() {
         <Text style={styles.subtitle}>
           Enter the 6-digit verification code sent to
         </Text>
-        <Text style={styles.phoneText}>+91 ******{phone?.slice(-4)}</Text>
+        <View style={styles.phoneRow}>
+          <Text style={styles.phoneText}>+91 ******{phone?.slice(-4)}</Text>
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="create-outline" size={18} color="#A2441D" />
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.otpWrapper}>
           <TextInput
@@ -177,12 +187,22 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#64748B",
   },
+  phoneRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+    marginBottom: 36,
+  },
   phoneText: {
     fontSize: 16,
     fontWeight: "700",
     color: "#A2441D",
-    marginTop: 4,
-    marginBottom: 36,
+  },
+  editButton: {
+    marginLeft: 8,
+    padding: 4,
+    justifyContent: "center",
+    alignItems: "center",
   },
   otpWrapper: {
     position: "relative",

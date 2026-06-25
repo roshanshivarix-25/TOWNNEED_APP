@@ -110,7 +110,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 24,
-    justifyContent: "center",
+    justifyContent: "flex-start",
+    paddingTop: 40,
+    paddingBottom: 80,
   },
   logoWrapper: {
     alignItems: "center",

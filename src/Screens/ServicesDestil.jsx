@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  Keyboard,
 } from "react-native";
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -40,6 +41,21 @@ export default function ServicesDestil() {
   const insets = useSafeAreaInsets();
 
   const [service, setService] = useState(null);
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+  const [isInputFocused, setIsInputFocused] = useState(false);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+    const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
   const [loading, setLoading] = useState(true);
 
   // User selections
@@ -227,11 +243,13 @@ export default function ServicesDestil() {
   const fields = getProcessedFields(service?.serviceData?.fields);
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={{ flex: 1, backgroundColor: "#FAF9F5" }}
-    >
-      <View style={{ flex: 1, paddingTop: insets.top }}>
+    <View style={{ flex: 1, backgroundColor: "#FAF9F5" }}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
+        style={{ flex: 1 }}
+      >
+        <View style={{ flex: 1, paddingTop: insets.top }}>
         <StatusBar barStyle="dark-content" backgroundColor="#FAF9F5" />
         
         {/* HEADER */}
@@ -255,6 +273,7 @@ export default function ServicesDestil() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
           {/* PROMO HERO CARD */}
           <View style={styles.heroCard}>
@@ -362,6 +381,8 @@ export default function ServicesDestil() {
                         onChangeText={(text) => handleInputChange(field.name, text)}
                         placeholder={getFieldPlaceholder(field.label)}
                         placeholderTextColor="#9E9E9E"
+                        onFocus={() => setIsInputFocused(true)}
+                        onBlur={() => setIsInputFocused(false)}
                       />
                     </View>
                   );
@@ -371,7 +392,11 @@ export default function ServicesDestil() {
           )}
         </ScrollView>
 
-        {/* BOTTOM FIXED ACTION BAR */}
+        </View>
+      </KeyboardAvoidingView>
+
+      {/* BOTTOM FIXED ACTION BAR */}
+      {!isKeyboardVisible && !isInputFocused && (
         <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
           <View style={styles.priceContainer}>
             <Text style={styles.priceLabel}>Starting from</Text>
@@ -393,15 +418,15 @@ export default function ServicesDestil() {
             </View>
           </TouchableOpacity>
         </View>
+      )}
 
-        <CustomDatePicker
-          visible={showDatePicker}
-          onClose={() => setShowDatePicker(false)}
-          onSelectDate={handleSelectDate}
-          selectedValue={formValues[currentDatePickerField]}
-        />
-      </View>
-    </KeyboardAvoidingView>
+      <CustomDatePicker
+        visible={showDatePicker}
+        onClose={() => setShowDatePicker(false)}
+        onSelectDate={handleSelectDate}
+        selectedValue={formValues[currentDatePickerField]}
+      />
+    </View>
   );
 }
 
@@ -462,7 +487,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 110,
+    paddingBottom: 120,
   },
   heroCard: {
     backgroundColor: "#FFF2EE",

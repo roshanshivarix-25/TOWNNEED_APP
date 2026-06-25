@@ -71,21 +71,6 @@ export const logoutApi = async () => {
   }
 };
 
-export const getMeApi = async () => {
-  try {
-    console.log("[API] Calling getMeApi");
-    const response = await axiosInstance.post("/user/me");
-    console.log("[API] getMeApi Success response:", response.data);
-    if (!response.data.success) {
-      throw new Error(extractErrorMessage(response.data, "Failed to fetch user"));
-    }
-    return response.data.data;
-  } catch (error) {
-    console.log("[API] getMeApi Error:", error.response?.data || error.message);
-    throw new Error(extractErrorMessage(error, "Failed to fetch user"));
-  }
-};
-
 export const updateProfileApi = async (fullName, email, password, location) => {
   try {
     console.log("[API] Calling updateProfileApi with:", { fullName, email, location });

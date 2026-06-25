@@ -17,7 +17,7 @@ import {
   Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as Sharing from "expo-sharing";
+import * as WebBrowser from "expo-web-browser";
 import { getMyPaymentsApi, downloadInvoiceApi } from "../api/services";
 
 
@@ -59,24 +59,16 @@ export default function PaymentHistoryScreen() {
     }
     try {
       setDownloadingId(paymentId);
-      const fileUriOrSuccess = await downloadInvoiceApi(paymentId);
+      const url = await downloadInvoiceApi(paymentId);
       
-      if (Platform.OS !== "web" && fileUriOrSuccess) {
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(fileUriOrSuccess, {
-            mimeType: "application/pdf",
-            dialogTitle: "Download Invoice",
-            UTI: "com.adobe.pdf",
-          });
-        } else {
-          Alert.alert("Success", "Invoice downloaded successfully!");
-        }
+      if (Platform.OS === "web") {
+        window.open(url, "_blank");
       } else {
-        Alert.alert("Success", "Invoice downloaded successfully!");
+        await WebBrowser.openBrowserAsync(url);
       }
     } catch (err) {
-      console.log("Failed to download invoice:", err.message);
-      Alert.alert("Error", "Could not download invoice. Please try again.");
+      console.log("Failed to open invoice:", err.message);
+      Alert.alert("Error", "Could not open invoice. Please try again.");
     } finally {
       setDownloadingId(null);
     }
@@ -462,8 +454,8 @@ export default function PaymentHistoryScreen() {
                             <ActivityIndicator size="small" color="#9A3412" />
                           ) : (
                             <>
-                              <Ionicons name="download-outline" size={14} color="#9A3412" style={{ marginRight: 6 }} />
-                              <Text style={styles.downloadInvoiceBtnText}>Download Invoice</Text>
+                              <Ionicons name="eye-outline" size={14} color="#9A3412" style={{ marginRight: 6 }} />
+                              <Text style={styles.downloadInvoiceBtnText}>View Invoice</Text>
                             </>
                           )}
                         </TouchableOpacity>

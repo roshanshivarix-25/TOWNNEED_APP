@@ -12,7 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter, useNavigation } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { getMeApi, logoutApi } from "../api/auth";
+import { logoutApi } from "../api/auth";
 import BottomTab from "../Components/BottomTab";
 import { getServicesApi, getUserBookingsApi } from "../api/services";
 
@@ -53,16 +53,6 @@ export default function ProfileScreen() {
           location: userObj.location || "Location",
           email: userObj.email || "Email Address",
         });
-      } else {
-        const apiUser = await getMeApi().catch(() => null);
-        if (apiUser) {
-          setUser({
-            name: apiUser.fullName || apiUser.name || "User Name",
-            phone: apiUser.phone || "+910000000000",
-            location: apiUser.location || "Location",
-            email: apiUser.email || "Email Address",
-          });
-        }
       }
     } catch (e) {
       console.log("Failed to fetch user in ProfileScreen:", e);
@@ -111,7 +101,7 @@ export default function ProfileScreen() {
   const menuItems = [
     { id: "addresses", title: "Saved addresses", icon: "location-outline", emoji: "📍" },
     { id: "payments", title: "Payment history", icon: "receipt-outline", emoji: "🛍️" },
-    { id: "notifications", title: "Notifications", icon: "notifications-outline", emoji: "🔔" },
+    // { id: "notifications", title: "Notifications", icon: "notifications-outline", emoji: "🔔" },
     { id: "vendor", title: "Vendor bano", icon: "briefcase-outline", emoji: "🤝" },
   ];
 
@@ -170,13 +160,13 @@ export default function ProfileScreen() {
             <Text style={styles.statNumber}>{servicesCount}</Text>
             <Text style={styles.statLabel}>Services</Text>
           </View>
-          <View style={styles.statCard}>
+          {/* <View style={styles.statCard}>
             <View style={styles.ratingWrapper}>
               <Text style={styles.statNumber}>4.9</Text>
               <Ionicons name="star" size={20} color="#F59E0B" style={styles.starIcon} />
             </View>
             <Text style={styles.statLabel}>Rating</Text>
-          </View>
+          </View> */}
         </View>
 
         {/* Menu Options Container */}

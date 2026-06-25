@@ -30,15 +30,15 @@ export default function CreateVenderForm() {
   const [city, setCity] = useState(""); // Holds the selected District
   const [stateName, setStateName] = useState("");
   const [selectedService, setSelectedService] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
   
-  const [servicesList, setServicesList] = useState([]);
-  const [loadingServices, setLoadingServices] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [focusedInput, setFocusedInput] = useState(null);
   const [formErrors, setFormErrors] = useState({});
-  const [modalVisible, setModalVisible] = useState(false);
   const [stateModalVisible, setStateModalVisible] = useState(false);
   const [districtModalVisible, setDistrictModalVisible] = useState(false);
+
+  const [servicesList, setServicesList] = useState([]);
 
   useEffect(() => {
     const fetchServices = async () => {
@@ -47,8 +47,6 @@ export default function CreateVenderForm() {
         setServicesList(data || []);
       } catch (err) {
         console.log("Failed to load services in CreateVenderForm:", err.message);
-      } finally {
-        setLoadingServices(false);
       }
     };
     fetchServices();
@@ -275,23 +273,19 @@ export default function CreateVenderForm() {
             <Text style={styles.inputLabel}>
               Service <Text style={{ color: "#EF4444" }}>*</Text>
             </Text>
-            {loadingServices ? (
-              <ActivityIndicator size="small" color="#9A3412" style={{ alignSelf: "flex-start", marginVertical: 10 }} />
-            ) : (
-              <TouchableOpacity
-                style={[
-                  styles.dropdownSelector,
-                  formErrors.service && styles.textInputError,
-                ]}
-                activeOpacity={0.7}
-                onPress={() => setModalVisible(true)}
-              >
-                <Text style={selectedService ? styles.dropdownText : styles.dropdownPlaceholder}>
-                  {selectedService ? selectedService.title : "Select a service"}
-                </Text>
-                <Ionicons name="chevron-down" size={18} color="#64748B" />
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={[
+                styles.dropdownSelector,
+                formErrors.service && styles.textInputError,
+              ]}
+              activeOpacity={0.7}
+              onPress={() => setModalVisible(true)}
+            >
+              <Text style={selectedService ? styles.dropdownText : styles.dropdownPlaceholder}>
+                {selectedService ? selectedService.title : "Select a service"}
+              </Text>
+              <Ionicons name="chevron-down" size={18} color="#64748B" />
+            </TouchableOpacity>
             {formErrors.service && <Text style={styles.errorText}>{formErrors.service}</Text>}
           </View>
 
@@ -310,6 +304,8 @@ export default function CreateVenderForm() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+
 
       {/* SERVICE SELECTION MODAL */}
       <Modal

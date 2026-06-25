@@ -8,12 +8,13 @@ import {
   ActivityIndicator,
   StatusBar,
   Alert,
+  NativeModules,
 } from "react-native";
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import RazorpayCheckout from "react-native-razorpay";
-import { createPaymentOrderApi, verifyPaymentApi, createPaymentApi } from "../api/services";
+import { createPaymentOrderApi, verifyPaymentApi } from "../api/services";
 
 export default function PaymentScreen() {
   const router = useRouter();
@@ -37,7 +38,7 @@ export default function PaymentScreen() {
   const vendorPhone = params.vendorPhone || "";
 
   // Public key ID from environment variables or hardcoded fallback
-  const razorpayKeyId = process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID || "rzp_test_T3PhiPdog60a82";
+  const razorpayKeyId = process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID || "rzp_test_T4xQMkq7AIVmdq";
 
   const handlePayment = async () => {
     if (!bookingId) {
@@ -50,24 +51,23 @@ export default function PaymentScreen() {
 
       if (paymentMethod === "cash") {
         // --- CASH ON DELIVERY FLOW ---
-        const transactionId = `COD-${bookingId.slice(-6).toUpperCase()}`;
-        const paymentPayload = {
-          bookingId,
-          amount: totalPrice.toString(),
-          paymentMethod: "cash",
-          transactionId,
-          status: "unpaid", // Cash on Delivery payments are unpaid until service completion
-        };
+        console.log("[PaymentScreen] Creating COD order on backend for booking:", bookingId);
+        const orderRes = await createPaymentOrderApi(bookingId, totalPrice, true, "cod");
 
-        console.log("[PaymentScreen] Initiating Cash payment:", paymentPayload);
-        await createPaymentApi(paymentPayload);
+        const orderIdFromBackend = orderRes.data?.paymentId || orderRes.data?.orderId;
+
+        if (!orderRes.success || !orderIdFromBackend) {
+          throw new Error(orderRes.message || "Failed to create COD payment order.");
+        }
+
+        const transactionId = orderIdFromBackend;
 
         // Redirect to success screen with status information
         router.replace({
           pathname: "/booking-success",
           params: {
             bookingId,
-            orderId,
+            orderId: orderIdFromBackend,
             totalPrice: totalPrice.toString(),
             eventType,
             guestCount: guestCount.toString(),
@@ -80,13 +80,14 @@ export default function PaymentScreen() {
             paymentMethod: "cash",
             paymentStatus: "unpaid",
             transactionId,
+            isCOD: "true",
           },
         });
       } else {
         // --- ONLINE PAYMENT FLOW (Razorpay) ---
         // 1. Create Razorpay order on backend
         console.log("[PaymentScreen] Creating order on backend for booking:", bookingId);
-        const orderRes = await createPaymentOrderApi(bookingId, totalPrice);
+        const orderRes = await createPaymentOrderApi(bookingId, totalPrice, false, paymentMethod);
 
         if (!orderRes.success || !orderRes.data?.orderId) {
           throw new Error(orderRes.message || "Failed to create Razorpay payment order.");
@@ -109,11 +110,21 @@ export default function PaymentScreen() {
             contact: "9999999999",
             name: "TownNeed Customer",
           },
-          theme: { color: "#3E7B1D" }, // Premium Green branding matching confirmation page
+          theme: { color: "#A2441D" }, 
         };
 
         console.log("[PaymentScreen] Launching Razorpay SDK with options:", options);
         
+        const isRazorpayAvailable = !!NativeModules.RNRazorpayCheckout;
+        if (!isRazorpayAvailable) {
+          Alert.alert(
+            "Razorpay SDK Not Available",
+            "The native Razorpay SDK is not available in this build. If you are using Expo Go, please run a custom development build (npx expo run:android or npx expo run:ios) or choose Cash on Delivery instead."
+          );
+          setLoading(false);
+          return;
+        }
+
         RazorpayCheckout.open(options)
           .then(async (data) => {
             // SDK Success returns: razorpay_payment_id, razorpay_order_id, razorpay_signature
@@ -257,26 +268,7 @@ export default function PaymentScreen() {
           </View>
         </TouchableOpacity>
 
-        {/* Option 3: Card / Net Banking */}
-        <TouchableOpacity
-          style={[
-            styles.paymentCard,
-            paymentMethod === "card" && styles.paymentCardActive,
-          ]}
-          onPress={() => setPaymentMethod("card")}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.radioOuter, paymentMethod === "card" && styles.radioOuterActive]}>
-            {paymentMethod === "card" && <View style={styles.radioInner} />}
-          </View>
-          <View style={styles.paymentIconWrapper}>
-            <Ionicons name="card-outline" size={22} color="#3B82F6" />
-          </View>
-          <View style={styles.paymentDetails}>
-            <Text style={styles.paymentTitle}>Card / Net Banking</Text>
-            <Text style={styles.paymentSubtitle}>Debit/Credit card / Net Banking</Text>
-          </View>
-        </TouchableOpacity>
+
 
         {/* SECURE NOTICE */}
         <View style={styles.secureNotice}>

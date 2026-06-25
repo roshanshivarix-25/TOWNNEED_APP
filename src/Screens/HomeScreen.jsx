@@ -17,7 +17,7 @@ import {
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { getMeApi } from "../api/auth";
+
 import { getServicesApi, getUserBookingsApi } from "../api/services";
 import BottomTab from "../Components/BottomTab";
 
@@ -42,6 +42,7 @@ export default function HomeScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const [userName, setUserName] = useState("Guest");
+  const [userLocation, setUserLocation] = useState("Set Location");
   const [services, setServices] = useState([]);
   const [loadingServices, setLoadingServices] = useState(true);
   const [completedBookings, setCompletedBookings] = useState([]);
@@ -66,13 +67,34 @@ export default function HomeScreen() {
 
   const fetchUser = async () => {
     try {
+      // Fetch from AsyncStorage for display
       const userJson = await AsyncStorage.getItem("user");
       if (userJson) {
-        const userObj = JSON.parse(userJson);
-        setUserName(userObj.fullName || userObj.name || "User");
-      } else {
-        const apiUser = await getMeApi().catch(() => null);
-        setUserName(apiUser?.fullName || apiUser?.name || "User");
+        const currentUser = JSON.parse(userJson);
+        setUserName(currentUser.fullName || currentUser.name || "User");
+        
+        // Extract location
+        let locationStr = "Set Location";
+        if (currentUser.location) {
+          if (typeof currentUser.location === "object") {
+            // City is District in TownNeed payload
+            if (currentUser.location.city) {
+              locationStr = currentUser.location.city;
+            } else if (currentUser.location.address) {
+              locationStr = currentUser.location.address.split(",")[0];
+            } else if (currentUser.location.state) {
+              locationStr = currentUser.location.state;
+            }
+          } else if (typeof currentUser.location === "string") {
+            locationStr = currentUser.location.split(",")[0];
+          }
+        }
+        
+        // Truncate to keep header neat
+        if (locationStr && locationStr.length > 25) {
+          locationStr = locationStr.slice(0, 22) + "...";
+        }
+        setUserLocation(locationStr || "Set Location");
       }
     } catch (e) {
       console.log("Failed to load user details:", e);
@@ -225,16 +247,16 @@ export default function HomeScreen() {
             </TouchableOpacity>
             <View style={styles.welcomeBlock}>
               <Text style={styles.greetingText}>Namaste {userName ? userName.trim().split(" ")[0] : "User"} 👋</Text>
-              <TouchableOpacity style={styles.locationContainer} activeOpacity={0.7}>
+              <View style={styles.locationContainer}>
                 <Ionicons name="location-sharp" size={13} color="#A2441D" style={{ marginRight: 2 }} />
-                <Text style={styles.locationText}>Location</Text>
-              </TouchableOpacity>
+                <Text style={styles.locationText} numberOfLines={1}>{userLocation}</Text>
+              </View>
             </View>
           </View>
           <TouchableOpacity
             style={styles.notificationButton}
             activeOpacity={0.8}
-            onPress={() => Alert.alert("Notifications", "No new notifications")}
+            onPress={() => Alert.alert("Notifications", "Notifications Feture Coming Soon!")}
           >
             <Ionicons name="notifications-outline" size={22} color="#1E293B" />
           </TouchableOpacity>

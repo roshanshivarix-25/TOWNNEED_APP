@@ -32,6 +32,7 @@ export default function BookingSuccess() {
   const paymentMethod = params.paymentMethod || "upi";
   const paymentStatus = params.paymentStatus || "paid";
   const transactionId = params.transactionId || "";
+  const isCOD = params.isCOD === "true" || paymentMethod === "cash";
 
   // Animation values
   const scaleAnim = useRef(new Animated.Value(0.3)).current;
@@ -125,13 +126,13 @@ export default function BookingSuccess() {
         {/* Payment Status Badge */}
         <View style={[
           styles.paymentBadge, 
-          paymentStatus === "paid" ? styles.paymentBadgePaid : styles.paymentBadgeUnpaid
+          !isCOD ? styles.paymentBadgePaid : styles.paymentBadgeUnpaid
         ]}>
           <Text style={[
             styles.paymentBadgeText, 
-            paymentStatus === "paid" ? styles.paymentBadgeTextPaid : styles.paymentBadgeTextUnpaid
+            !isCOD ? styles.paymentBadgeTextPaid : styles.paymentBadgeTextUnpaid
           ]}>
-            {paymentStatus === "paid" 
+            {!isCOD 
               ? `Paid via ${paymentMethod.toUpperCase()} (TXN: ${transactionId})` 
               : "Cash on Delivery (Unpaid)"}
           </Text>
@@ -196,7 +197,7 @@ export default function BookingSuccess() {
 
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>
-              {paymentStatus === "paid" ? "Total paid" : "Total to pay (COD)"}
+              {!isCOD ? "Total paid" : "Total to pay (COD)"}
             </Text>
             <Text style={styles.totalValue}>₹{totalPrice.toLocaleString("en-IN")}</Text>
           </View>
@@ -208,18 +209,18 @@ export default function BookingSuccess() {
           {/* Step 1: Payment Status */}
           <View style={styles.timelineRow}>
             <View style={styles.timelineIconActive}>
-              {paymentStatus === "paid" ? (
+              {!isCOD ? (
                 <Ionicons name="checkmark-circle" size={18} color="#166534" />
               ) : (
                 <Ionicons name="time-outline" size={18} color="#D97706" />
               )}
             </View>
             <View style={styles.timelineContent}>
-              <Text style={paymentStatus === "paid" ? styles.timelineTitleActive : styles.timelineTitlePending}>
-                {paymentStatus === "paid" ? "Payment confirmed" : "COD Selected (Unpaid)"}
+              <Text style={!isCOD ? styles.timelineTitleActive : styles.timelineTitlePending}>
+                {!isCOD ? "Payment confirmed" : "COD Selected (Unpaid)"}
               </Text>
               <Text style={styles.timelineSubtitle}>
-                {paymentStatus === "paid" 
+                {!isCOD 
                   ? "Aapki online payment verify ho chuki hai" 
                   : `Kripya ₹${totalPrice.toLocaleString("en-IN")} service ke time pay karein`}
               </Text>
